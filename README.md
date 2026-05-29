@@ -20,6 +20,7 @@ The goal of the project is to build an interpretable end-to-end simulation chain
 
 ## Repository Structure
 
+```text
 src/        Core Python modules
 notebooks/  Step-by-step simulation notebooks
 figures/    Representative output figures
