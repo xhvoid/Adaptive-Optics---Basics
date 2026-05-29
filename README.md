@@ -27,6 +27,11 @@ figures/    Representative output figures
 ```
 
 ## Installation
+
+Clone the repository and install the required Python packages:
+
+```bash
 git clone https://github.com/xhvoid/Shack-Hartmann-AO-Simulation.git
 cd Shack-Hartmann-AO-Simulation
 pip install -r requirements.txt
+```
