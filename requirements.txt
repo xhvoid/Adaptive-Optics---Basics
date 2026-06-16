@@ -1,0 +1,9 @@
+# Core numerical computing
+numpy>=1.24
+
+# Plotting and visualization
+matplotlib>=3.7
+
+# Running and editing notebooks
+jupyter>=1.0
+ipykernel>=6.0
