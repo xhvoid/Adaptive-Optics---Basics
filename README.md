@@ -240,11 +240,6 @@ The notebook compares SH-WFS and PWFS correction on a common frozen-flow atmosph
 
 This makes the project closer to astronomical instrumentation performance analysis rather than only wavefront-map reconstruction.
 
-## Example project positioning
-
-This repository is best described as:
-
-> A compact detector-level AO/WFS simulation portfolio for astronomical instrumentation preparation. It focuses on Shack-Hartmann and pyramid wavefront sensing, response-matrix calibration, modal reconstruction, TSVD regularization, detector noise, closed-loop correction, and PSF/Strehl diagnostics. It is a transparent technical study project, not a calibrated end-to-end AO facility simulator.
 
 ## Limitations
 
@@ -261,17 +256,6 @@ The current implementation intentionally keeps several assumptions simple:
 
 These limitations are intentional: the project is designed to make the modelling chain inspectable and educational rather than to hide assumptions inside a black-box simulator.
 
-## Possible next steps
-
-High-value extensions include:
-
-1. Replace the toy DM with measured or more realistic influence functions.
-2. Add multi-layer frozen-flow turbulence and guide-star geometry.
-3. Extend the PWFS branch with a more rigorous modulation and closed-loop calibration strategy.
-4. Add detector characterization with gain, dark current, saturation, and readout cadence.
-5. Add optical-design links through Zemax / OpticStudio or ray-tracing outputs.
-6. Connect AO correction to spectrograph or IFU performance metrics such as fiber coupling, ensquared energy, slit losses, and spectral-resolution stability.
-7. Add automated tests for sign conventions, response-matrix construction, and reconstruction consistency.
 
 ## Author
 
