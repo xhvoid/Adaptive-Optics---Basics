@@ -2,16 +2,16 @@
 
 A compact Python portfolio project for adaptive optics (AO) and wavefront sensing (WFS), focused on Shack-Hartmann wavefront sensing, detector-level centroiding, modal reconstruction, regularization, closed-loop correction, PSF/Strehl diagnostics, and a simplified pyramid-WFS extension.
 
-This project was developed as a transparent study simulator for astronomical instrumentation. It is not intended to be a calibrated observatory-grade AO package. The emphasis is on making the full measurement and reconstruction chain explicit:
+This project was developed as a transparent study simulator for astronomical instrumentation. It is not intended to be a calibrated observatory grade AO package. The emphasis is on making the full measurement and reconstruction chain explicit:
 
 ```text
 pupil-plane phase error
 → wavefront-sensor measurement
-→ response / interaction matrix
+→ response/interaction matrix
 → modal reconstruction and regularization
-→ deformable-mirror or modal correction
+→ deformable mirror or modal correction
 → residual wavefront
-→ PSF, Strehl, and image-quality diagnostics
+→ PSF, Strehl, and image quality diagnostics
 ```
 
 ## Project scope
@@ -22,8 +22,8 @@ The project also includes a simplified Fourier-optics pyramid wavefront sensor (
 
 ## Main features
 
-* Circular pupil grids and Zernike / Zernike-like modal wavefronts
-* Atmospheric-like phase screens with Kolmogorov / von Karman-style spectral structure
+* Circular pupil grids and Zernike modal wavefronts
+* Atmospheric-like phase screens with Kolmogorov/von Karman style spectral structure
 * Geometric Shack-Hartmann WFS slope sensing
 * Detector-level Shack-Hartmann WFS simulation:
 
@@ -33,20 +33,20 @@ The project also includes a simplified Fourier-optics pyramid wavefront sensor (
   * centroiding and reference-subtracted centroid shifts
   * detector-level response matrices
 * Modal least-squares reconstruction
-* Singular-value diagnostics and TSVD / `rcond` regularization
-* Sampling-density versus correction-order studies
+* Singular value diagnostics and TSVD/`rcond` regularization
+* Sampling density versus correction-order studies
 * Simplified Gaussian-influence-function deformable mirror
 * Geometric and detector-level closed-loop AO demonstrations
-* Loop-gain and loop-delay diagnostics
+* Loop gain and loop delay diagnostics
 * PSF, Strehl ratio, radial-profile, and Marechal-style diagnostics
-* Simplified Fourier-optics PWFS forward model:
+* Simplified Fourier optics PWFS forward model:
 
   * pyramid-like phase mask
   * four re-imaged pupil images
   * modulation points
   * noisy detector measurement
   * modal PWFS calibration
-* NIR science-performance notebook for a 10 m-class telescope-like setup:
+* NIR science-performance notebook for a 10 m class telescope-like setup:
 
   * common frozen-flow OPD sequence
   * detector-level SH-WFS and PWFS comparison
@@ -245,7 +245,7 @@ This makes the project closer to astronomical instrumentation performance analys
 
 The current implementation intentionally keeps several assumptions simple:
 
-* The atmosphere is represented by compact Kolmogorov / von Karman-like phase screens.
+* The atmosphere is represented by compact Kolmogorov/von Karman-like phase screens.
 * Some atmospheric screens are RMS-normalized for controlled tests.
 * The deformable mirror uses idealized Gaussian influence functions.
 * The detector models are simplified.
