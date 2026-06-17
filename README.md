@@ -46,12 +46,6 @@ The project also includes a simplified Fourier-optics pyramid wavefront sensor (
   * modulation points
   * noisy detector measurement
   * modal PWFS calibration
-* NIR science-performance notebook for a 10 m class telescope-like setup:
-
-  * common frozen-flow OPD sequence
-  * detector-level SH-WFS and PWFS comparison
-  * residual OPD conversion to J/H/K science wavelengths
-  * Strehl, FWHM, encircled-energy, and field-performance diagnostics
 
 ## Representative figures
 
@@ -97,8 +91,8 @@ The project also includes a simplified Fourier-optics pyramid wavefront sensor (
 │   ├── 06_detector_level_shwfs.ipynb
 │   ├── 07_closed_loop_ao.ipynb
 │   ├── 07_detector_level_closed_loop_ao.ipynb
-│   ├── 08_pwfs_detector_level_atmospheric_turbulence_EXECUTED.ipynb
-│   └── 09_ao_psf_instrument_performance_v2_latest_py.ipynb
+│   └── 08_pwfs_detector_level_atmospheric_turbulence.ipynb
+│   
 │
 ├── figures/
 │   ├── detector_level_reconstruction.png
@@ -136,8 +130,7 @@ The project also includes a simplified Fourier-optics pyramid wavefront sensor (
 | `06_detector_level_shwfs.ipynb`                                | Clean detector-level SH-WFS pipeline: diffraction-limited lenslet spots, finite detector windows, noisy centroiding, response-matrix calibration, coefficient reconstruction, and centroid-noise scans.      |
 | `07_closed_loop_ao.ipynb`                                      | Geometric closed-loop AO baseline with Gaussian DM influence functions, ideal SH-WFS slopes, integrator control, RMS tracking, and Strehl diagnostics.                                                       |
 | `07_detector_level_closed_loop_ao.ipynb`                       | Detector-level closed-loop AO using centroid-shift measurements instead of ideal slopes. Includes detector response matrices, loop gain, loop delay, command leak, residual RMS, and PSF/Strehl diagnostics. |
-| `08_pwfs_detector_level_atmospheric_turbulence_EXECUTED.ipynb` | Simplified detector-level PWFS extension with Fourier propagation, pyramid-like phase mask, four re-imaged pupils, detector noise, `Sx/Sy` maps, modal calibration, reconstruction, and PSF diagnostics.     |
-| `09_ao_psf_instrument_performance_v2_latest_py.ipynb`          | AO / NIR instrument-performance notebook for a 10 m-class telescope-like setup. Compares detector-level SH-WFS and PWFS on a common frozen-flow OPD sequence and evaluates J/H/K science PSF metrics.        |
+| `08_pwfs_detector_level_atmospheric_turbulence.ipynb` | Simplified detector-level PWFS extension with Fourier propagation, pyramid-like phase mask, four re-imaged pupils, detector noise, `Sx/Sy` maps, modal calibration, reconstruction, and PSF diagnostics.     |
 
 ## Installation
 
@@ -176,7 +169,7 @@ jupyter notebook
 Recommended reading order:
 
 ```text
-01 → 02 → 03 → 04 → 05 → 06 → 07 → 07b → 08 → 09
+01 → 02 → 03 → 04 → 05 → 06 → 07 → 07b → 08
 ```
 
 For a short review, start with:
@@ -184,8 +177,7 @@ For a short review, start with:
 ```text
 06_detector_level_shwfs.ipynb
 07_detector_level_closed_loop_ao.ipynb
-08_pwfs_detector_level_atmospheric_turbulence_EXECUTED.ipynb
-09_ao_psf_instrument_performance_v2_latest_py.ipynb
+08_pwfs_detector_level_atmospheric_turbulence.ipynb
 ```
 
 ## Technical highlights
@@ -224,21 +216,6 @@ The detector-level closed-loop experiment is deliberately simplified, but it no 
 The pyramid-WFS branch uses a compact Fourier-optics model. The pupil field is propagated to the focal plane, multiplied by a pyramid-like phase mask, and propagated back to form four re-imaged pupil intensities. Normalized `Sx/Sy` maps are then used as the PWFS measurement vector.
 
 This branch should be read as an exploratory extension. It demonstrates the PWFS measurement logic and modal calibration, but it does not yet include a fully validated PWFS modulation, control, and detector-readout model.
-
-### 5. Science PSF and NIR instrument-performance diagnostics
-
-The latest performance notebook connects AO residuals to science-image metrics. Instead of evaluating a residual phase only at the WFS wavelength, the residual is converted to OPD and then re-evaluated at J/H/K science wavelengths.
-
-The notebook compares SH-WFS and PWFS correction on a common frozen-flow atmospheric sequence and evaluates:
-
-* Strehl ratio
-* PSF core sharpening
-* radial PSF profiles
-* approximate FWHM
-* encircled-energy radii
-* simple field-performance roll-off
-
-This makes the project closer to astronomical instrumentation performance analysis rather than only wavefront-map reconstruction.
 
 
 ## Limitations
