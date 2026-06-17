@@ -49,6 +49,18 @@ The project also includes a simplified Fourier-optics pyramid wavefront sensor (
 
 ## Representative figures
 
+### High-order AO correction: NIR PSF sharpening
+
+![High-order AO reconstruction](figures/high_order_ao_jhk_psf.png)
+
+### Closed-loop residual OPD RMS
+
+![Closed-loop residual OPD RMS](figures/high_order_ao_rms_history.png)
+
+### Wavefront correction: input phase, DM correction, and residual
+
+![Wavefront correction](figures/high_order_ao_phase_maps.png)
+
 ### Detector-level Shack-Hartmann reconstruction
 
 ![Detector-level reconstruction](figures/detector_level_reconstruction.png)
