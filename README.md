@@ -85,64 +85,17 @@ The detector-level SH-WFS notebooks simulate lenslet spots, finite detector wind
 ## Repository structure
 
 ```text
-.
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-│
-├── src/
-│   ├── zernike.py
-│   ├── phase_screen.py
-│   ├── reconstruction.py
-│   ├── shwfs_detector.py
-│   ├── ao_closed_loop.py
-│   ├── psf_tools.py
-│   └── pwfs_forward.py
-│
-├── notebooks/
-│   ├── 01_test_sh_wfs.ipynb
-│   ├── 02_sh_wfs_experiment.ipynb
-│   ├── 03_zernike_mode_scan.ipynb
-│   ├── 04_sampling_vs_mode_order_heatmap.ipynb
-│   ├── 05_tsvd_regularization.ipynb
-│   ├── 06_detector_level_shwfs.ipynb
-│   ├── 07_closed_loop_ao.ipynb
-│   ├── 07_detector_level_closed_loop_ao.ipynb
-│   ├── 08_pwfs_detector_level_atmospheric_turbulence.ipynb
-│   ├── 09_ao_psf_instrument_performance_high_order_ao.ipynb
-│   └── 10_noise_latency_gain_stability.ipynb
-│
-├── examples/
-│   ├── run_shwfs_centroid_demo.py
-│   └── run_psf_strehl_demo.py
-│
-├── tests/
-│   ├── test_psf_tools.py
-│   ├── test_shwfs_detector.py
-│   ├── test_phase_screen.py
-│   └── test_reconstruction.py
-│
-├── scripts/
-│   └── README.md
-│
-├── figures/
-│   ├── high_order_ao_jhk_psf.png
-│   ├── high_order_ao_rms_history.png
-│   ├── high_order_ao_phase_maps.png
-│   ├── noise_latency_gain_stability.png
-│   ├── controller_tuning_rcond_gain.png
-│   ├── PWFS_detector_images.png
-│   ├── sampling_vs_correction_order.png
-│   ├── detector_level_reconstruction.png
-│   └── generated/
-│
-├── pyproject.toml
-├── requirements.txt
-├── README.md
-└── LICENSE
+src/          reusable AO, WFS, reconstruction, PSF, and PWFS utilities
+notebooks/    narrative simulations from SH-WFS basics to high-order AO
+examples/     lightweight command-line demos used in CI
+tests/        numerical sanity checks for the core modules
+figures/      selected outputs used in this README and generated examples
+.github/      GitHub Actions workflow
 ```
 
 ## Code architecture
+
+I kept the reusable numerical pieces in `src/` so the notebooks stay readable and the core functions can be tested independently. The notebooks are closer to experiment logs; the modules hold the reusable modelling components.
 
 | Module              | Main role                                                                                                                                                       |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
