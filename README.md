@@ -245,7 +245,7 @@ The repository includes focused unit tests for the numerical core rather than ex
 pytest -q
 ```
 
-The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same test command on Python 3.11.
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same test command on Python 3.11 and then executes the two command-line examples.
 
 ## Command-line examples
 
