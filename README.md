@@ -1,8 +1,10 @@
 # Shack-Hartmann Wavefront Sensing and Adaptive Optics Simulation Portfolio
 
+[![tests](https://github.com/xhvoid/Shack-Hartmann-AO-Simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/xhvoid/Shack-Hartmann-AO-Simulation/actions/workflows/ci.yml)
+
 A compact Python portfolio project for adaptive optics (AO), wavefront sensing (WFS), wavefront reconstruction, closed-loop correction, and science-facing PSF diagnostics.
 
-The project started from geometric Shack-Hartmann wavefront sensing and Zernike modal reconstruction, then expanded into detector-level centroiding, response-matrix calibration, TSVD regularization, simplified closed-loop AO, exploratory PWFS modelling, and a high-order actuator-space AO performance notebook for a 10 m-class telescope-like setup.
+The project started from geometric Shack-Hartmann wavefront sensing and Zernike modal reconstruction, then expanded into detector-level centroiding, response-matrix calibration, TSVD regularization, simplified closed-loop AO, exploratory PWFS modelling, a high-order actuator-space AO performance notebook for a 10 m-class telescope-like setup, and lightweight noise / latency / gain-stability trade studies.
 
 This is not intended to be a calibrated observatory AO package. The goal is to make the modelling chain explicit and inspectable:
 
@@ -30,9 +32,10 @@ The main components are:
 * simplified deformable-mirror closed-loop AO;
 * detector-level closed-loop SH-WFS demonstrations;
 * exploratory Fourier-optics PWFS forward modelling;
-* high-order actuator-space SH-AO with NIR PSF performance diagnostics.
+* high-order actuator-space SH-AO with NIR PSF performance diagnostics;
+* photon-noise, read-noise, loop-delay, and gain-stability scans.
 
-The latest notebook, `09_ao_psf_instrument_performance_high_order_ao.ipynb`, is the most science-facing part of the repository. It upgrades the earlier low-order/modal examples into a high-order actuator-space AO loop using a 48 × 48 Shack-Hartmann sampling grid, a 49 × 49 nominal actuator grid, actuator poke-matrix calibration, TSVD command reconstruction, and J/H/K PSF metrics for a 10 m-class telescope-like configuration.
+The most science-facing notebook, `09_ao_psf_instrument_performance_high_order_ao.ipynb`, upgrades the earlier low-order/modal examples into a high-order actuator-space AO loop using a 48 × 48 Shack-Hartmann sampling grid, a 49 × 49 nominal actuator grid, actuator poke-matrix calibration, TSVD command reconstruction, and J/H/K PSF metrics for a 10 m-class telescope-like configuration. Notebook `10_noise_latency_gain_stability.ipynb` then stress-tests the control loop with compact noise, delay, and gain scans.
 
 ## Main features
 
@@ -52,6 +55,7 @@ The latest notebook, `09_ao_psf_instrument_performance_high_order_ao.ipynb`, is 
 * Gaussian-influence-function deformable mirror model
 * Geometric and detector-level closed-loop AO demonstrations
 * Loop-gain, loop-delay, and command-leak diagnostics
+* Noise / latency / gain-stability error-budget notebook
 * FFT-based PSF calculation and Strehl-ratio diagnostics
 * J/H/K science-wavelength PSF metrics:
 
@@ -89,6 +93,12 @@ The wavefront maps show the open-loop atmospheric phase, the DM correction, and 
 
 ![High-order AO phase maps](figures/high_order_ao_phase_maps.png)
 
+### Noise, latency, and loop-gain trade-offs
+
+Notebook 10 scans photon flux, read noise, loop gain, and frame delay to expose the stability and residual-error trade-offs hidden by clean AO runs.
+
+![Noise, latency, and gain stability](figures/noise_latency_gain_stability.png)
+
 ### Simplified PWFS detector images
 
 The PWFS branch is an exploratory Fourier-optics extension. It demonstrates detector-plane pupil images and normalized slope-like signal maps, but it is not yet a fully validated PWFS AO control simulator.
@@ -111,6 +121,10 @@ The detector-level SH-WFS branch explicitly simulates lenslet spots, finite dete
 
 ```text
 .
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+│
 ├── src/
 │   ├── zernike.py
 │   ├── phase_screen.py
@@ -130,17 +144,34 @@ The detector-level SH-WFS branch explicitly simulates lenslet spots, finite dete
 │   ├── 07_closed_loop_ao.ipynb
 │   ├── 07_detector_level_closed_loop_ao.ipynb
 │   ├── 08_pwfs_detector_level_atmospheric_turbulence.ipynb
-│   └── 09_ao_psf_instrument_performance_high_order_ao.ipynb
+│   ├── 09_ao_psf_instrument_performance_high_order_ao.ipynb
+│   └── 10_noise_latency_gain_stability.ipynb
+│
+├── examples/
+│   ├── run_shwfs_centroid_demo.py
+│   └── run_psf_strehl_demo.py
+│
+├── tests/
+│   ├── test_psf_tools.py
+│   ├── test_shwfs_detector.py
+│   ├── test_phase_screen.py
+│   └── test_reconstruction.py
+│
+├── scripts/
+│   └── README.md
 │
 ├── figures/
 │   ├── high_order_ao_jhk_psf.png
 │   ├── high_order_ao_rms_history.png
 │   ├── high_order_ao_phase_maps.png
+│   ├── noise_latency_gain_stability.png
 │   ├── controller_tuning_rcond_gain.png
 │   ├── PWFS_detector_images.png
 │   ├── sampling_vs_correction_order.png
-│   └── detector_level_reconstruction.png
+│   ├── detector_level_reconstruction.png
+│   └── generated/
 │
+├── pyproject.toml
 ├── requirements.txt
 ├── README.md
 └── LICENSE
@@ -172,6 +203,7 @@ The detector-level SH-WFS branch explicitly simulates lenslet spots, finite dete
 | `07_detector_level_closed_loop_ao.ipynb`               | Detector-level closed-loop AO using centroid-shift measurements instead of ideal slopes. Includes detector response matrices, loop gain, loop delay, command leak, residual RMS, and PSF/Strehl diagnostics.                                                                      |
 | `08_pwfs_detector_level_atmospheric_turbulence.ipynb`  | Simplified detector-level PWFS extension with Fourier propagation, pyramid-like phase mask, four re-imaged pupils, detector noise, `Sx/Sy` maps, modal calibration, reconstruction, and PSF diagnostics.                                                                          |
 | `09_ao_psf_instrument_performance_high_order_ao.ipynb` | High-order actuator-space SH-AO / NIR PSF performance demonstrator. Uses a seeing-strength frozen-flow atmosphere, 48 × 48 SH-WFS sampling, 49 × 49 nominal DM actuator grid, poke-matrix calibration, TSVD command reconstruction, loop-gain diagnostics, and J/H/K PSF metrics. |
+| `10_noise_latency_gain_stability.ipynb`                | Engineering trade-off notebook for photon flux, read noise, centroid-noise proxy, loop gain, loop delay, residual OPD RMS, H-band Strehl, and a simple stability boundary.                                                                                                      |
 
 ## Installation
 
@@ -185,7 +217,13 @@ cd Shack-Hartmann-AO-Simulation
 Install the required packages:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+```
+
+For development, examples, and tests, install the local project with test and notebook extras:
+
+```bash
+python -m pip install -e ".[test,notebooks]"
 ```
 
 The project is intentionally lightweight. The core dependencies are mainly:
@@ -194,8 +232,37 @@ The project is intentionally lightweight. The core dependencies are mainly:
 numpy
 scipy
 matplotlib
+pandas
 jupyter
 ipykernel
+```
+
+## Running tests
+
+The repository includes focused unit tests for the numerical core rather than executing notebooks in CI:
+
+```bash
+pytest -q
+```
+
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same test command on Python 3.11.
+
+## Command-line examples
+
+The examples provide quick entry points for reviewers who want reproducible outputs without opening Jupyter:
+
+```bash
+python examples/run_shwfs_centroid_demo.py
+python examples/run_psf_strehl_demo.py
+```
+
+They write lightweight artifacts under `figures/generated/`:
+
+```text
+figures/generated/shwfs_centroid_demo.png
+figures/generated/shwfs_centroid_demo.csv
+figures/generated/psf_strehl_demo.png
+figures/generated/psf_strehl_demo.csv
 ```
 
 ## Running the notebooks
@@ -209,7 +276,7 @@ jupyter notebook
 Recommended reading order:
 
 ```text
-01 → 02 → 03 → 04 → 05 → 06 → 07 → 07b → 08 → 09
+01 → 02 → 03 → 04 → 05 → 06 → 07 → 07b → 08 → 09 → 10
 ```
 
 For a short review, start with:
@@ -219,13 +286,28 @@ For a short review, start with:
 07_detector_level_closed_loop_ao.ipynb
 08_pwfs_detector_level_atmospheric_turbulence.ipynb
 09_ao_psf_instrument_performance_high_order_ao.ipynb
+10_noise_latency_gain_stability.ipynb
 ```
 
-For the latest high-order AO result, start directly with:
+For the high-order AO PSF result, start directly with:
 
 ```text
 09_ao_psf_instrument_performance_high_order_ao.ipynb
 ```
+
+For noise, latency, and loop-gain trade-offs, start with:
+
+```text
+10_noise_latency_gain_stability.ipynb
+```
+
+## Reproducibility and validation
+
+The repository now has three reproducibility layers:
+
+* Unit tests validate the numerical core: PSF normalization, Strehl sanity checks, phase/OPD conversion, detector centroiding edge cases, phase-screen RMS scaling, and modal reconstruction.
+* Command-line examples regenerate small PNG and CSV artifacts from deterministic seeds.
+* Notebooks remain the narrative entry points for the broader AO experiments, with notebook 10 explicitly separating clean-model AO performance from noise, latency, and controller-stability stress tests.
 
 ## Technical highlights
 
@@ -291,15 +373,23 @@ H band  ≈ 0.77
 K band  ≈ 0.86
 ```
 
+These values should be read as a clean-model performance demonstration rather than a calibrated prediction for a specific telescope or AO system.
+
 This makes the project closer to astronomical instrumentation performance analysis rather than only wavefront-map reconstruction.
 
-### 5. PWFS extension
+### 5. Noise, latency, and loop-gain stability
+
+Notebook `10_noise_latency_gain_stability.ipynb` adds a compact engineering trade-off layer around the closed-loop AO model. It scans photon flux, read noise, a transparent centroid-noise proxy, loop gain, and frame delay, then reports residual OPD RMS and H-band Marechal Strehl.
+
+This is not a full AO error budget. Its purpose is to make the controller trade-offs visible: noise floors limit the value of high gain, latency narrows the stable gain range, and clean-model Strehl can be optimistic when detector and timing effects are ignored.
+
+### 6. PWFS extension
 
 The pyramid-WFS branch uses a compact Fourier-optics model. The pupil field is propagated to the focal plane, multiplied by a pyramid-like phase mask, and propagated back to form four re-imaged pupil intensities. Normalized `Sx/Sy` maps are then used as the PWFS measurement vector.
 
 This branch should be read as an exploratory extension. It demonstrates the PWFS measurement logic and modal calibration, but it does not yet include a fully validated PWFS modulation, control, and detector-readout model.
 
-## Limitations
+## Validation and limitations
 
 The current implementation intentionally keeps several assumptions simple:
 
@@ -311,6 +401,7 @@ The current implementation intentionally keeps several assumptions simple:
 * The PWFS branch is a compact Fourier-optics demonstrator, not a fully validated PWFS control simulator.
 * The high-order notebook uses a geometric SH-WFS slope model rather than detector-level spot centroiding.
 * The high-order notebook does not include photon noise, read noise, centroiding error, detector nonlinearity, temporal delay, vibration, wind-shake, or a full servo-lag error budget.
+* Notebook 10 explores photon/read noise and delay through a simplified proxy model rather than a calibrated detector and real-time-control simulator.
 * The high-order notebook does not include multi-layer tomography, LGS cone effect, NCPA, chromaticity, throughput, sky background, or science-camera noise.
 * The simulations are not calibrated to a specific telescope, instrument, guide-star configuration, or observatory AO system.
 

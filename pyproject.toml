@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shack-hartmann-ao-simulation"
+version = "0.1.0"
+description = "Compact Python simulations for Shack-Hartmann wavefront sensing and adaptive optics."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Xu Han" }]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pandas>=1.5",
+]
+
+[project.optional-dependencies]
+notebooks = [
+    "jupyter>=1.0",
+    "ipykernel>=6.0",
+]
+test = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools]
+py-modules = [
+    "ao_closed_loop",
+    "phase_screen",
+    "psf_tools",
+    "pwfs_forward",
+    "reconstruction",
+    "shwfs_detector",
+    "zernike",
+]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
