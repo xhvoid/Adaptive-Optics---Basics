@@ -60,7 +60,7 @@ The wavefront maps show the open-loop atmospheric phase, the DM correction, and 
 
 ### Noise, latency, and loop-gain trade-offs
 
-Notebook 10 scans photon flux, read noise, loop gain, and frame delay. This is meant to show where a clean AO loop becomes optimistic.
+Notebook 10 scans photon flux, read noise, loop gain, and frame delay. The gain-delay panel marks the chosen operating point and hatches cells where the loop becomes unstable or command-limited.
 
 ![Noise, latency, and gain stability](figures/noise_latency_gain_stability.png)
 
@@ -287,9 +287,9 @@ I keep this caveat explicit because the numbers are useful for comparing clean-m
 
 ### 5. Noise, latency, and loop-gain stability
 
-Notebook `10_noise_latency_gain_stability.ipynb` adds a compact engineering trade-off layer around the closed-loop AO model. It scans photon flux, read noise, a transparent centroid-noise proxy, loop gain, and frame delay, then reports residual OPD RMS and H-band Marechal Strehl.
+Notebook `10_noise_latency_gain_stability.ipynb` adds a compact engineering trade-off layer around the closed-loop AO model. It scans photon flux, read noise, a transparent centroid-noise proxy, loop gain, and frame delay, then reports residual OPD RMS, H-band Marechal Strehl, command growth, and a simple stability flag.
 
-This is not a full AO error budget. Its purpose is to make the controller trade-offs visible: noise floors limit the value of high gain, latency narrows the stable gain range, and clean-model Strehl can be optimistic when detector and timing effects are ignored.
+This is not a full AO error budget. Its purpose is to make the controller trade-offs visible: noise floors limit the value of high gain, latency narrows the stable gain range, and clean-model Strehl can be optimistic when detector and timing effects are ignored. The delay axis is also labelled as physical latency for a nominal 1 kHz loop.
 
 ### 6. PWFS extension
 
