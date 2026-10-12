@@ -213,7 +213,7 @@ For noise, latency, and loop-gain trade-offs, start with:
 
 I use three lightweight checks rather than trying to execute every notebook in CI:
 
-* Unit tests validate the numerical core: PSF normalization, Strehl sanity checks, phase/OPD conversion, detector centroiding edge cases, phase-screen RMS scaling, and modal reconstruction.
+* Unit tests validate the numerical core: PSF normalization, Strehl sanity checks, phase/OPD conversion, detector centroiding edge cases, modal reconstruction, exact slopes of a tilted wavefront up to the pupil edge, and phase-screen statistics against the von Kármán aperture variance (Noll's 1.0299 and 0.134 coefficients in the Kolmogorov limit).
 * Command-line examples regenerate small PNG and CSV artifacts from deterministic seeds.
 * Notebooks remain the narrative entry points for the broader AO experiments, with notebook 10 explicitly separating clean-model AO performance from noise, latency, and controller-stability stress tests.
 
@@ -263,25 +263,26 @@ TSVD rcond      = 2e-2
 loop gain       = 0.65
 ```
 
-For the adopted 0.8 arcsec seeing, the SH-WFS subaperture size is close to the Fried parameter at the WFS wavelength. The controller uses an actuator poke matrix and TSVD command reconstruction, then converts residual OPD into J/H/K science PSF metrics.
+For the adopted 0.8 arcsec seeing, the SH-WFS subaperture size is close to the Fried parameter at the WFS wavelength. The atmosphere is a von Kármán phase sheet with that r0 and a 25 m outer scale, at its physical strength (no RMS rescaling). The controller uses an actuator poke matrix and TSVD command reconstruction, then converts residual OPD into J/H/K science PSF metrics.
 
 Representative clean-run results:
 
 ```text
-open-loop median OPD RMS after settling    ≈ 2914 nm
-closed-loop median OPD RMS after settling  ≈ 135 nm
-correction factor                          ≈ 22×
+open-loop median OPD RMS after settling    ≈ 1020 nm
+closed-loop median OPD RMS after settling  ≈ 78 nm
+ideal DM fitting floor                     ≈ 56 nm
+correction factor                          ≈ 13×
 ```
 
 Approximate NIR Strehl ratios:
 
 ```text
-J band  ≈ 0.64
-H band  ≈ 0.77
-K band  ≈ 0.86
+J band  ≈ 0.86
+H band  ≈ 0.92
+K band  ≈ 0.95
 ```
 
-These values should be read as a clean-model performance demonstration rather than a calibrated prediction for a specific telescope or AO system.
+The loop is noiseless and has no frame delay, so these values should be read as a clean-model performance demonstration rather than a calibrated prediction for a specific telescope or AO system.
 
 I keep this caveat explicit because the numbers are useful for comparing clean-model cases, but they are not a substitute for a calibrated instrument error budget.
 
@@ -289,7 +290,7 @@ I keep this caveat explicit because the numbers are useful for comparing clean-m
 
 Notebook `10_noise_latency_gain_stability.ipynb` adds a compact engineering trade-off layer around the closed-loop AO model. It scans photon flux, read noise, a transparent centroid-noise proxy, loop gain, and frame delay, then reports residual OPD RMS, H-band Marechal Strehl, command growth, and a simple stability flag.
 
-This is not a full AO error budget. Its purpose is to make the controller trade-offs visible: noise floors limit the value of high gain, latency narrows the stable gain range, and clean-model Strehl can be optimistic when detector and timing effects are ignored. The delay axis is also labelled as physical latency for a nominal 1 kHz loop.
+This is not a full AO error budget. Its purpose is to make the controller trade-offs visible: latency narrows the stable gain range (with two frames of delay the loop diverges above a gain of about 0.6, with three frames above about 0.45), and clean-model Strehl can be optimistic when detector and timing effects are ignored. In the current configuration the residual, about 228 nm OPD, is dominated by DM fitting error, so the photon and read-noise scans change it by only a few nanometres. The delay axis is also labelled as physical latency for a nominal 1 kHz loop.
 
 ### 6. PWFS extension
 
@@ -301,8 +302,8 @@ This branch should be read as an exploratory extension. It demonstrates the PWFS
 
 The current implementation intentionally keeps several assumptions simple:
 
-* The atmosphere is represented by compact Kolmogorov / von Karman-like phase screens.
-* Some atmospheric screens are RMS-normalized for controlled tests.
+* The atmosphere is a single-layer von Kármán phase screen with low-frequency subharmonics, moved by frozen flow across a sheet larger than the pupil.
+* The other notebooks that use phase screens normalize their RMS for controlled tests; notebook 09 uses the physical strength set by r0 and L0.
 * The deformable mirror uses idealized Gaussian influence functions.
 * The detector models are simplified.
 * The SH-WFS branch is more mature than the PWFS branch.
