@@ -82,6 +82,8 @@ def measure_slopes(
     min_fill: float = 0.5,
     noise_std: float = 0.0,
     seed: int | None = 1,
+    centers: np.ndarray | None = None,
+    masks: list[np.ndarray] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Measure mean local wavefront slopes in every valid sub-aperture.
@@ -91,6 +93,9 @@ def measure_slopes(
         sx = <dW/dx>,  sy = <dW/dy>
 
     A detector-level model should instead form lenslet spots and centroid them.
+
+    Pass ``centers`` and ``masks`` from ``subaperture_masks`` to skip
+    recomputing the lenslet geometry on every call.
     """
     if noise_std < 0:
         raise ValueError("noise_std must be non-negative.")
@@ -98,13 +103,14 @@ def measure_slopes(
     dx = float(X[0, 1] - X[0, 0])
     dWdx, dWdy = numerical_gradient(W, abs(dx))
 
-    centers, masks = subaperture_masks(
-        X,
-        Y,
-        pupil_mask,
-        n_lenslets=n_lenslets,
-        min_fill=min_fill,
-    )
+    if masks is None or centers is None:
+        centers, masks = subaperture_masks(
+            X,
+            Y,
+            pupil_mask,
+            n_lenslets=n_lenslets,
+            min_fill=min_fill,
+        )
 
     slopes = []
     for m in masks:

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from reconstruction import measure_slopes, rms
+from reconstruction import measure_slopes, rms, subaperture_masks
 from psf_tools import strehl_ratio
 from phase_screen import frozen_flow_shift, frozen_flow_shift_physical
 from shwfs_detector import reference_centroids, measure_centroid_shifts
@@ -21,12 +21,23 @@ def actuator_centers_on_pupil(
     diameter: float = 1.0,
     n_actuators: int = 8,
     include_edge: bool = True,
+    radius_factor: float = 1.0,
 ) -> tuple[np.ndarray, float]:
-    """Generate square-grid DM actuator centers inside a circular pupil."""
+    """
+    Generate square-grid DM actuator centers on a circular pupil.
+
+    Actuators within ``radius_factor`` pupil radii are kept. A factor slightly
+    above 1 adds a guard ring outside the pupil, which helps a continuous
+    face-sheet mirror fit the pupil edge. With ``include_edge=True`` and
+    n_actuators = n_lenslets + 1, actuators sit on the lenslet corners
+    (Fried geometry).
+    """
     if n_actuators < 2:
         raise ValueError("n_actuators must be >= 2.")
     if diameter <= 0:
         raise ValueError("diameter must be positive.")
+    if radius_factor <= 0:
+        raise ValueError("radius_factor must be positive.")
 
     radius = diameter / 2.0
     if include_edge:
@@ -37,10 +48,18 @@ def actuator_centers_on_pupil(
 
     pitch = float(coords[1] - coords[0]) if len(coords) > 1 else diameter
 
+    if radius_factor > 1.0:
+        # Extend the grid with the same pitch so a guard ring can exist.
+        n_extra = int(np.ceil((radius_factor - 1.0) * radius / pitch))
+        coords = np.concatenate(
+            [coords[0] - pitch * np.arange(n_extra, 0, -1), coords, coords[-1] + pitch * np.arange(1, n_extra + 1)]
+        )
+
+    keep_radius = radius_factor * radius
     centers = []
     for x in coords:
         for y in coords:
-            if x**2 + y**2 <= radius**2:
+            if x**2 + y**2 <= keep_radius**2 * (1.0 + 1e-12):
                 centers.append([x, y])
 
     return np.asarray(centers, dtype=float), pitch
@@ -86,7 +105,7 @@ def synthesize_dm_phase(
     if commands.shape[0] != influence_functions.shape[0]:
         raise ValueError("Number of commands must match number of influence functions.")
 
-    dm = np.nansum(commands[:, None, None] * np.nan_to_num(influence_functions), axis=0)
+    dm = np.tensordot(commands, np.nan_to_num(influence_functions), axes=1)
     dm = np.where(pupil_mask, dm, np.nan)
 
     if remove_mean:
@@ -107,26 +126,46 @@ def build_dm_wfs_response_matrix(
     min_fill: float = 0.5,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Build a geometric SH-WFS response matrix for DM actuator commands."""
+    centers, masks = subaperture_masks(X, Y, pupil_mask, n_lenslets=n_lenslets, min_fill=min_fill)
     columns = []
-    reference_centers = None
-
     for infl in influence_functions:
-        centers, slopes = measure_slopes(
+        infl = np.where(pupil_mask, infl, np.nan)
+        _, slopes = measure_slopes(
             infl,
             pupil_mask,
             X,
             Y,
-            n_lenslets=n_lenslets,
-            min_fill=min_fill,
             noise_std=0.0,
+            centers=centers,
+            masks=masks,
         )
-        if reference_centers is None:
-            reference_centers = centers
-        elif centers.shape != reference_centers.shape or not np.allclose(centers, reference_centers):
-            raise RuntimeError("Sub-aperture geometry changed between influence functions.")
         columns.append(slopes.reshape(-1))
 
-    return np.column_stack(columns), reference_centers
+    return np.column_stack(columns), centers
+
+
+def fit_dm_to_phase(
+    phase: np.ndarray,
+    influence_functions: np.ndarray,
+    pupil_mask: np.ndarray,
+    rcond: float = 1e-3,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Best least-squares DM fit of a phase map inside the pupil.
+
+    This is the fitting floor: what a perfect sensor and controller could
+    remove with this mirror. Returns the commands, the fitted DM phase and
+    the piston-removed residual.
+    """
+    valid = pupil_mask & np.isfinite(phase)
+    A = np.nan_to_num(influence_functions)[:, valid].T
+    A = A - A.mean(axis=0)
+    b = phase[valid] - np.mean(phase[valid])
+    commands, *_ = np.linalg.lstsq(A, b, rcond=rcond)
+    fitted = synthesize_dm_phase(commands, influence_functions, pupil_mask)
+    residual = np.where(pupil_mask, phase - fitted, np.nan)
+    residual[valid] -= np.mean(residual[valid])
+    return commands, fitted, residual
 
 
 def build_dm_detector_response_matrix(
@@ -238,6 +277,23 @@ def reconstruct_dm_delta(
     return delta, residuals, rank, singular_values
 
 
+def tsvd_reconstructor(
+    dm_response_matrix: np.ndarray,
+    rcond: float = 1e-3,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """
+    Truncated-SVD command matrix R, so that a command increment is R @ slopes.
+
+    Singular values below ``rcond`` times the largest are dropped. Returns R,
+    all singular values and the number kept.
+    """
+    A = np.asarray(dm_response_matrix, dtype=float)
+    U, S, Vt = np.linalg.svd(A, full_matrices=False)
+    keep = S >= rcond * S[0]
+    R = (Vt[keep].T / S[keep]) @ U[:, keep].T
+    return R, S, int(np.count_nonzero(keep))
+
+
 def shifted_atmosphere(
     phase0: np.ndarray,
     pupil_mask: np.ndarray,
@@ -277,19 +333,42 @@ def run_closed_loop_ao(
     compute_strehl: bool = True,
     pad_factor: int = 4,
     seed: int = 1,
+    delay_frames: int = 0,
+    reconstructor: np.ndarray | None = None,
 ) -> dict[str, np.ndarray]:
     """
     Run a simple geometric-SH-WFS integrator closed-loop AO simulation.
 
     ``phase0`` is a frozen-flow phase sheet larger than the pupil, shifted by
     ``wind_shift_per_step`` pixels per step (see ``shifted_atmosphere``).
+
+    Each frame measures the residual seen by the science camera
+    (``rms_before``) and updates the commands for the next frame. With
+    ``delay_frames = d`` the update uses the measurement from d frames
+    earlier, so a pure integrator is stable only for
+    gain < 2 sin(pi / (2 (2 d + 1))). ``rms_after`` applies the new commands
+    to the same frame.
+
+    ``reconstructor`` is an optional precomputed command matrix (see
+    ``tsvd_reconstructor``); without it each frame solves a least-squares
+    problem with ``rcond``.
     """
     if not (0 <= command_leak < 1):
         raise ValueError("command_leak must satisfy 0 <= command_leak < 1.")
+    if delay_frames < 0:
+        raise ValueError("delay_frames must be non-negative.")
 
     rng = np.random.default_rng(seed)
     commands = np.zeros(influence_functions.shape[0], dtype=float)
     sx_step, sy_step = wind_shift_per_step
+    centers, masks = subaperture_masks(X, Y, pupil_mask, n_lenslets=n_lenslets, min_fill=min_fill)
+    infl0 = np.nan_to_num(influence_functions)
+    pending: list[np.ndarray] = []
+
+    def dm_phase(c: np.ndarray) -> np.ndarray:
+        dm = np.where(pupil_mask, np.tensordot(c, infl0, axes=1), np.nan)
+        dm[pupil_mask] -= np.mean(dm[pupil_mask])
+        return dm
 
     hist = {
         "rms_atmosphere": [],
@@ -308,7 +387,7 @@ def run_closed_loop_ao(
             shift_y_pix=int(k * sy_step),
         )
 
-        dm_before = synthesize_dm_phase(commands, influence_functions, pupil_mask)
+        dm_before = dm_phase(commands)
         residual_before = np.where(pupil_mask, atm - dm_before, np.nan)
         residual_before[pupil_mask] -= np.nanmean(residual_before[pupil_mask])
 
@@ -317,16 +396,24 @@ def run_closed_loop_ao(
             pupil_mask,
             X,
             Y,
-            n_lenslets=n_lenslets,
-            min_fill=min_fill,
             noise_std=slope_noise_std,
             seed=int(rng.integers(0, 2**31 - 1)),
+            centers=centers,
+            masks=masks,
         )
 
-        delta, *_ = reconstruct_dm_delta(slopes, dm_response_matrix, rcond=rcond)
+        pending.append(slopes.reshape(-1))
+        if len(pending) > delay_frames:
+            measured = pending.pop(0)
+            if reconstructor is not None and np.all(np.isfinite(measured)):
+                delta = reconstructor @ measured
+            else:
+                delta, *_ = reconstruct_dm_delta(measured, dm_response_matrix, rcond=rcond)
+        else:
+            delta = np.zeros_like(commands)
         commands = (1.0 - command_leak) * commands + gain * delta
 
-        dm_after = synthesize_dm_phase(commands, influence_functions, pupil_mask)
+        dm_after = dm_phase(commands)
         residual_after = np.where(pupil_mask, atm - dm_after, np.nan)
         residual_after[pupil_mask] -= np.nanmean(residual_after[pupil_mask])
 
@@ -469,6 +556,7 @@ def gain_scan(
     rcond: float = 1e-3,
     command_leak: float = 0.0,
     seed: int = 1,
+    delay_frames: int = 0,
 ) -> dict[float, dict[str, float]]:
     """Run a compact loop-gain scan and summarize residual performance."""
     out = {}
@@ -490,6 +578,7 @@ def gain_scan(
             command_leak=command_leak,
             compute_strehl=False,
             seed=seed,
+            delay_frames=delay_frames,
         )
         tail = hist["rms_after"][max(0, n_steps // 2) :]
         out[float(gain)] = {
