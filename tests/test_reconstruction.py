@@ -25,6 +25,16 @@ def test_numerical_gradient_of_linear_wavefront():
     assert np.allclose(dwdy[1:-1, 1:-1], -3.0)
 
 
+def test_geometric_slopes_of_tilt_are_exact_up_to_the_pupil_edge():
+    x, y, _, _, mask, _ = make_pupil_grid(N=96, diameter=1.0)
+    wavefront = np.where(mask, 0.7 * x - 0.3 * y, np.nan)
+
+    _, slopes = measure_slopes(wavefront, mask, x, y, n_lenslets=10, min_fill=0.35)
+
+    assert np.allclose(slopes[:, 0], 0.7)
+    assert np.allclose(slopes[:, 1], -0.3)
+
+
 def test_subaperture_masks_return_matching_centers_and_masks():
     x, y, _, _, mask, _ = make_pupil_grid(N=40, diameter=1.0)
 

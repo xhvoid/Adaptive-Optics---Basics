@@ -11,10 +11,14 @@ def numerical_gradient(W: np.ndarray, dx: float) -> tuple[np.ndarray, np.ndarray
 
     ``np.gradient`` returns d/daxis0 and d/daxis1. Since axis 0 corresponds
     to y and axis 1 corresponds to x, the returned order is (dW/dx, dW/dy).
+
+    Samples outside the pupil should be NaN. A central difference that
+    reaches outside the pupil is then NaN too, so rim pixels are left out
+    rather than seeing an artificial jump to zero at the pupil edge.
     """
     if dx <= 0:
         raise ValueError("dx must be positive.")
-    W0 = np.nan_to_num(W, nan=0.0)
+    W0 = np.asarray(W, dtype=float)
     dW_dy, dW_dx = np.gradient(W0, dx, dx)
     return dW_dx, dW_dy
 
@@ -104,9 +108,11 @@ def measure_slopes(
 
     slopes = []
     for m in masks:
-        sx = np.nanmean(dWdx[m])
-        sy = np.nanmean(dWdy[m])
-        slopes.append([sx, sy])
+        usable = m & np.isfinite(dWdx) & np.isfinite(dWdy)
+        if np.any(usable):
+            slopes.append([np.mean(dWdx[usable]), np.mean(dWdy[usable])])
+        else:
+            slopes.append([np.nan, np.nan])
 
     slopes_arr = np.asarray(slopes, dtype=float)
 
