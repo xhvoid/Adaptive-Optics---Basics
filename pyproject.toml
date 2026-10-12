@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shack-hartmann-ao-simulation"
+name = "adaptive-optics-basics"
 version = "0.1.0"
-description = "Compact Python simulations for Shack-Hartmann wavefront sensing and adaptive optics."
+description = "Adaptive optics from first principles: turbulence, Shack-Hartmann sensing, reconstruction, closed-loop control and PSFs, checked against theory."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -25,6 +25,14 @@ notebooks = [
 test = [
     "pytest>=8.0",
 ]
+notebook-test = [
+    "nbclient>=0.10",
+    "nbformat>=5.10",
+    "ipykernel>=6.29",
+]
+
+[project.urls]
+Repository = "https://github.com/xhvoid/Adaptive-Optics---Basics"
 
 [tool.setuptools]
 py-modules = [
