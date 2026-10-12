@@ -13,7 +13,7 @@ import numpy as np
 
 from reconstruction import measure_slopes, rms
 from psf_tools import strehl_ratio
-from phase_screen import frozen_flow_shift_physical
+from phase_screen import frozen_flow_shift, frozen_flow_shift_physical
 from shwfs_detector import reference_centroids, measure_centroid_shifts
 
 
@@ -244,12 +244,19 @@ def shifted_atmosphere(
     shift_x_pix: int = 0,
     shift_y_pix: int = 0,
 ) -> np.ndarray:
-    """Toy frozen-flow phase shift with periodic boundary conditions."""
-    full = np.nan_to_num(phase0, nan=0.0)
-    shifted = np.roll(np.roll(full, int(shift_y_pix), axis=0), int(shift_x_pix), axis=1)
-    shifted = np.where(pupil_mask, shifted, np.nan)
-    shifted[pupil_mask] -= np.nanmean(shifted[pupil_mask])
-    return shifted
+    """
+    Frozen-flow atmosphere inside the pupil after a whole-pixel shift.
+
+    ``phase0`` is a phase sheet larger than the pupil; the pupil sees a
+    moving window of it (see ``phase_screen.frozen_flow_shift``).
+    """
+    return frozen_flow_shift(
+        phase0,
+        shift_x_pix=shift_x_pix,
+        shift_y_pix=shift_y_pix,
+        mask=pupil_mask,
+        remove_mean=True,
+    )
 
 
 def run_closed_loop_ao(
@@ -271,7 +278,12 @@ def run_closed_loop_ao(
     pad_factor: int = 4,
     seed: int = 1,
 ) -> dict[str, np.ndarray]:
-    """Run a simple geometric-SH-WFS integrator closed-loop AO simulation."""
+    """
+    Run a simple geometric-SH-WFS integrator closed-loop AO simulation.
+
+    ``phase0`` is a frozen-flow phase sheet larger than the pupil, shifted by
+    ``wind_shift_per_step`` pixels per step (see ``shifted_atmosphere``).
+    """
     if not (0 <= command_leak < 1):
         raise ValueError("command_leak must satisfy 0 <= command_leak < 1.")
 
@@ -366,6 +378,9 @@ def run_closed_loop_ao_detector(
     Chain:
         atmosphere -> residual phase -> lenslet spots -> noisy centroids
         -> centroid-response DM reconstruction -> integrator update
+
+    ``phase0`` is a frozen-flow phase sheet larger than the pupil, moved by
+    the wind velocity (vx, vy) over ``dt`` per step.
     """
     if not (0 <= command_leak < 1):
         raise ValueError("command_leak must satisfy 0 <= command_leak < 1.")

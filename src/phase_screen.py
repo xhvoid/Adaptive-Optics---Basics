@@ -381,15 +381,41 @@ def frozen_flow_shift(
     remove_mean: bool = True,
 ) -> np.ndarray:
     """
-    Shift a phase screen with periodic boundary conditions.
+    Frozen-flow phase seen through the pupil after the screen has moved.
 
-    This is useful for a toy frozen-flow atmosphere model.
+    The screen content moves by (shift_x_pix, shift_y_pix) pixels.
+
+    If ``mask`` is smaller than ``screen``, the screen is a frozen-flow sheet:
+    the pupil is a mask-sized window, centred on the sheet at zero shift,
+    and the window moves the opposite way so the turbulence crosses it. The
+    sheet must be large enough for the whole path; generate it with
+    ``fourier_phase_screen(..., diameter=None)``.
+
+    If ``mask`` has the screen's shape (or is None), the screen is rolled
+    with periodic boundaries. That is only valid for an unmasked screen: a
+    rolled pupil-masked screen slides its NaN border into the pupil.
     """
-    shifted = np.roll(
-        np.roll(np.nan_to_num(screen, nan=0.0), int(shift_y_pix), axis=0),
-        int(shift_x_pix),
-        axis=1,
-    )
+    screen = np.asarray(screen, dtype=float)
+    sx, sy = int(shift_x_pix), int(shift_y_pix)
+
+    if mask is not None and mask.shape != screen.shape:
+        ny, nx = mask.shape
+        y0 = (screen.shape[0] - ny) // 2 - sy
+        x0 = (screen.shape[1] - nx) // 2 - sx
+        if y0 < 0 or x0 < 0 or y0 + ny > screen.shape[0] or x0 + nx > screen.shape[1]:
+            raise ValueError(
+                "Frozen-flow window left the phase sheet; use a larger sheet "
+                "or fewer steps."
+            )
+        shifted = screen[y0 : y0 + ny, x0 : x0 + nx].copy()
+    else:
+        if (sx or sy) and np.any(np.isnan(screen)):
+            raise ValueError(
+                "Rolling a pupil-masked screen moves its NaN border into the "
+                "pupil. Pass an unmasked sheet larger than the pupil "
+                "(fourier_phase_screen(..., diameter=None)) with the pupil mask."
+            )
+        shifted = np.roll(np.roll(screen, sy, axis=0), sx, axis=1)
 
     if mask is not None:
         shifted = np.where(mask, shifted, np.nan)
@@ -410,6 +436,9 @@ def frozen_flow_shift_physical(
 ) -> np.ndarray:
     """
     Shift a phase screen using physical wind velocity.
+
+    The shift is rounded to whole pixels; see ``frozen_flow_shift`` for how
+    sheets larger than the pupil are handled.
 
     Parameters
     ----------
