@@ -14,7 +14,7 @@ Normalizing to a target RMS is still available for controlled tests.
 from __future__ import annotations
 
 import numpy as np
-from scipy.special import j1, jv
+from scipy.special import j0, j1, jv
 
 
 def circular_mask_from_grid(X: np.ndarray, Y: np.ndarray, diameter: float) -> np.ndarray:
@@ -164,6 +164,29 @@ def von_karman_phase_variance(
     y = integrand * f
     u = np.log(f)
     return float(np.sum(0.5 * (y[1:] + y[:-1]) * np.diff(u)))
+
+
+def von_karman_structure_function(
+    r: np.ndarray,
+    r0: float,
+    L0: float | None = None,
+) -> np.ndarray:
+    """
+    Phase structure function D(r) = <[phi(x + r) - phi(x)]^2> in rad^2.
+
+        D(r) = 2 * integral of PSD(f) [1 - J0(2 pi f r)] 2 pi f df
+
+    For a Kolmogorov spectrum this is 6.88 (r/r0)^(5/3); a finite outer
+    scale lowers it, noticeably even at r much smaller than L0.
+    """
+    r = np.atleast_1d(np.asarray(r, dtype=float))
+    f = np.logspace(-7.0, 4.0, 40001) / max(float(np.max(r)), 1e-12)
+    u = np.log(f)
+    out = []
+    for ri in r:
+        y = von_karman_phase_psd(f, r0, L0) * (1.0 - j0(2.0 * np.pi * f * ri)) * 2.0 * np.pi * f * f
+        out.append(2.0 * np.sum(0.5 * (y[1:] + y[:-1]) * np.diff(u)))
+    return np.asarray(out)
 
 
 # FFT cells with |kx|, |ky| <= _LOW_BLOCK are drawn by explicit summation

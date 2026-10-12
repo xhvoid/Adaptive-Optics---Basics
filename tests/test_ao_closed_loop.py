@@ -103,3 +103,27 @@ def test_precomputed_reconstructor_matches_per_frame_least_squares():
     precomputed = run_closed_loop_ao(sheet, mask, x, y, influence, response, reconstructor=R, **common)
 
     assert np.allclose(per_frame["rms_before"], precomputed["rms_before"], rtol=1e-8)
+
+
+def test_recorded_residual_maps_match_the_rms_history():
+    x, y, mask, influence = _small_system()
+    response, _ = build_dm_wfs_response_matrix(influence, mask, x, y, n_lenslets=6, min_fill=0.5)
+    sheet, *_ = fourier_phase_screen(N=96, delta=1.0 / 48, r0=0.2, diameter=None, seed=4)
+
+    history = run_closed_loop_ao(
+        sheet,
+        mask,
+        x,
+        y,
+        influence,
+        response,
+        n_steps=12,
+        n_lenslets=6,
+        min_fill=0.5,
+        compute_strehl=False,
+        record_every=5,
+    )
+
+    assert list(history["residual_frames"]) == [0, 5, 10]
+    for frame, residual in zip(history["residual_frames"], history["residual_maps"]):
+        assert np.nanstd(residual[mask]) == pytest.approx(history["rms_before"][frame])

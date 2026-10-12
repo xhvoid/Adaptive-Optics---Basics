@@ -335,6 +335,7 @@ def run_closed_loop_ao(
     seed: int = 1,
     delay_frames: int = 0,
     reconstructor: np.ndarray | None = None,
+    record_every: int = 0,
 ) -> dict[str, np.ndarray]:
     """
     Run a simple geometric-SH-WFS integrator closed-loop AO simulation.
@@ -352,6 +353,10 @@ def run_closed_loop_ao(
     ``reconstructor`` is an optional precomputed command matrix (see
     ``tsvd_reconstructor``); without it each frame solves a least-squares
     problem with ``rcond``.
+
+    With ``record_every = n > 0`` the residual phase maps seen by the science
+    camera are kept every n frames (``residual_maps``, ``residual_frames``).
+    ``final_commands`` holds the last actuator commands.
     """
     if not (0 <= command_leak < 1):
         raise ValueError("command_leak must satisfy 0 <= command_leak < 1.")
@@ -378,6 +383,8 @@ def run_closed_loop_ao(
         "strehl_after": [],
         "command_norm": [],
     }
+    residual_maps = []
+    residual_frames = []
 
     for k in range(n_steps):
         atm = shifted_atmosphere(
@@ -421,12 +428,20 @@ def run_closed_loop_ao(
         hist["rms_before"].append(rms(residual_before, pupil_mask))
         hist["rms_after"].append(rms(residual_after, pupil_mask))
         hist["command_norm"].append(float(np.linalg.norm(commands)))
+        if record_every > 0 and k % record_every == 0:
+            residual_maps.append(residual_before)
+            residual_frames.append(k)
 
         if compute_strehl:
             hist["strehl_before"].append(float(strehl_ratio(residual_before, pupil_mask, pad_factor=pad_factor)))
             hist["strehl_after"].append(float(strehl_ratio(residual_after, pupil_mask, pad_factor=pad_factor)))
 
-    return {key: np.asarray(value) for key, value in hist.items()}
+    out = {key: np.asarray(value) for key, value in hist.items()}
+    out["final_commands"] = commands
+    if record_every > 0:
+        out["residual_maps"] = np.asarray(residual_maps)
+        out["residual_frames"] = np.asarray(residual_frames)
+    return out
 
 
 def run_closed_loop_ao_detector(

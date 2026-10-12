@@ -11,6 +11,7 @@ from phase_screen import (
     rms,
     scale_r0_with_wavelength,
     von_karman_phase_variance,
+    von_karman_structure_function,
 )
 
 
@@ -124,3 +125,13 @@ def test_frozen_flow_rejects_unsafe_shifts():
     _, _, small_mask = pupil_grid(32, 1.0, None)
     with pytest.raises(ValueError, match="left the phase sheet"):
         frozen_flow_shift(sheet, 5, 0, mask=small_mask)
+
+
+def test_structure_function_has_the_kolmogorov_limit():
+    r = np.array([0.01, 0.1, 1.0])
+
+    kolmogorov = von_karman_structure_function(r, 0.1, L0=None)
+    von_karman = von_karman_structure_function(r, 0.1, L0=25.0)
+
+    assert np.allclose(kolmogorov, 6.88 * (r / 0.1) ** (5.0 / 3.0), rtol=0.01)
+    assert np.all(von_karman < kolmogorov)
