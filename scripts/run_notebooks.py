@@ -41,6 +41,7 @@ def main() -> int:
         except Exception as exc:  # report every notebook, then fail at the end
             status = f"FAILED ({type(exc).__name__})"
             failed.append(path.name)
+            print(f"{path.name}: {exc}", file=sys.stderr, flush=True)
         print(f"{path.name}: {status} in {time.time() - start:.0f} s", flush=True)
         if args.write and status == "ok":
             nbformat.write(notebook, path)

@@ -6,21 +6,21 @@
 
 A Python model of a single-conjugate adaptive-optics system, built from first principles: atmospheric turbulence, Shack–Hartmann wavefront sensing, wavefront reconstruction, closed-loop control and the resulting near-infrared images. Every step is checked against a known analytic result.
 
-I built it to understand AO by implementing each part myself. The code is plain NumPy/SciPy in seven small modules, and seven tutorial notebooks walk through the chain, each ending with a comparison against theory.
+This is a self-study project for understanding AO through implementation. The code is plain NumPy/SciPy in seven modules, and seven tutorial notebooks walk through the chain, each ending with a comparison against theory.
 
 ![J, H and K images of an 8 m telescope in 0.8 arcsec seeing, without and with AO correction](figures/06_jhk_psf.png)
 
-*An 8 m telescope in 0.8″ seeing, corrected by a 40 × 40 Shack–Hartmann loop with 1517 actuators at 1 kHz and one frame of delay (noiseless). The wavefront error falls from 1.74 µm to 72 nm, and the image Strehl ratio is 0.88, 0.93 and 0.96 in J, H and K. [Notebook 06](notebooks/06_high_order_psf.ipynb).*
+*An idealised 8 m telescope in 0.8″ seeing, corrected by a 40 × 40 geometric Shack–Hartmann loop with 1517 actuators, a simulated 1 ms time step and one additional frame of measurement delay (noiseless). The wavefront error falls from 1.74 µm to 72 nm, and the image Strehl ratio is 0.88, 0.93 and 0.96 in J, H and K. [Notebook 06](notebooks/06_high_order_psf.ipynb).*
 
 ## Results, checked against theory
 
 | Step | Notebook | Check | Result |
 | --- | --- | --- | --- |
 | Turbulence | [01](notebooks/01_atmosphere.ipynb) | Aperture variance against the von Kármán integral (Noll's 1.0299 and 0.134 in the Kolmogorov limit); structure function against $6.88\,(r/r_0)^{5/3}$ | Variance 36.2 ± 1.9 against 36.9 rad²; structure functions within 8% |
-| Shack–Hartmann sensing | [02](notebooks/02_shack_hartmann.ipynb) | Exact slopes of a tilt; residual after correcting J Zernike modes against Noll (1976) | Tilt exact to 1e-15; projection within 4% of Noll for J = 3–28, slope-based reconstruction 12–34% above it (aliasing) |
-| Reconstruction | [03](notebooks/03_reconstruction_tsvd.ipynb) | Noise propagation $\sigma_s^2 \sum 1/\sigma_i^2$ through a TSVD reconstructor | Within 4% of 2000 simulated noise draws |
-| Detector | [04](notebooks/04_detector_centroiding.ipynb) | Spot shift from the Fourier shift theorem; photon- and read-noise centroid error | Shift within 1–5%; noise within 2% (photon) and 5% (read noise) |
-| Closed loop | [05](notebooks/05_closed_loop.ipynb) | Fitting floor $\kappa\,(d/r_0)^{5/3}$; integrator stability limit $2\sin(\pi/(2(2d+1)))$ for $d$ frames of delay | $\kappa$ = 0.23; largest stable gains 1.9, 1.0, 0.6, 0.4 for $d$ = 0–3 against limits of 2, 1, 0.62, 0.45 |
+| Shack–Hartmann sensing | [02](notebooks/02_shack_hartmann.ipynb) | Exact slopes of a tilt; residual after correcting J Zernike modes against [Noll (1976)](https://doi.org/10.1364/JOSA.66.000207) | Tilt exact to 1e-15; projection within about 5% of Noll for J = 3–28, slope-based reconstruction 12–34% above the best projection (aliasing) |
+| Reconstruction | [03](notebooks/03_reconstruction_tsvd.ipynb) | Noise propagation $\sigma_s^2 \sum 1/\sigma_i^2$ through a TSVD reconstructor | Within about 5% of 2000 simulated noise draws |
+| Detector | [04](notebooks/04_detector_centroiding.ipynb) | Spot shift from the Fourier shift theorem; photon- and read-noise centroid error | Shift within 1–5%; noise within 2% (photon) and about 6% (read noise) |
+| Closed loop | [05](notebooks/05_closed_loop.ipynb) | Fitting floor $\kappa\,(d/r_0)^{5/3}$; integrator stability limit $2\sin(\pi/(2(2d+1)))$ for $d$ frames of delay | $\kappa$ = 0.23; largest asymptotically stable tested gains 1.9, 0.9, 0.6, 0.4 for $d$ = 0–3, checked from the characteristic roots |
 | High-order AO | [06](notebooks/06_high_order_psf.ipynb) | Fitting floor; image Strehl against Maréchal $e^{-\sigma^2}$ | $\kappa$ = 0.22; Strehl within 0.003 of Maréchal in J, H and K |
 | Pyramid sensor (exploratory) | [07](notebooks/07_pyramid_sensor.ipynb) | Modulated tilt response against $\tfrac{2}{\pi}\arcsin(t/r)$ | Converges to it as modulation grows (largest difference 0.09 at 2 λ/D, 0.015 at 16 λ/D) |
 
@@ -28,7 +28,7 @@ I built it to understand AO by implementing each part myself. The code is plain 
 
 ![Closed-loop residual against loop gain and frame delay, with the theoretical stability limit](figures/05_gain_delay.png)
 
-A pure integrator acting on a measurement $d$ frames old is stable only for $g < 2\sin(\pi/(2(2d+1)))$: 2, 1, 0.62 and 0.45 for $d$ = 0 to 3. In the simulation the largest stable gains are 1.9 (the largest tested), 1.0, 0.6 and 0.4, matching those limits to the resolution of the scan. Even inside the stable region, delay costs performance, and noisy slopes push the best gain down (from 0.8 to 0.3 in [notebook 05](notebooks/05_closed_loop.ipynb)).
+A pure integrator acting on a measurement $d$ frames old is asymptotically stable only for $0 < g < 2\sin(\pi/(2(2d+1)))$: the upper limits are 2, 1, 0.62 and 0.45 for $d$ = 0 to 3. Checking the roots of $z^{d+1}-z^d+g$ gives largest stable tested gains of 1.9, 0.9, 0.6 and 0.4. At $d = 1$, $g = 1$ lies on the marginal boundary: it can improve the residual in a short run while its oscillations do not decay. The heatmap shows finite-run residual performance; the root check establishes stability. Delay costs performance, and noisy slopes push the best gain down (from 0.8 to 0.3 in [notebook 05](notebooks/05_closed_loop.ipynb)).
 
 ### The turbulence follows the theory
 
@@ -105,6 +105,12 @@ This is a model for understanding AO, not a prediction for a specific instrument
 - the closed loops use the geometric sensor; detector noise is studied on its own (notebook 04) and as slope noise in notebook 05;
 - Gaussian influence functions rather than a measured mirror, and no non-common-path aberrations, vibrations or real-time hardware;
 - the pyramid model is exploratory and not used in a loop.
+
+The 1 kHz setting specifies simulated time sampling. It does not establish detector exposure, readout latency or real-time execution speed. The displayed PSFs are instantaneous frames; the quoted Strehl values are medians of instantaneous peak ratios rather than a long-exposure image measurement.
+
+## References
+
+The tutorial comparisons use [Noll (1976)](https://doi.org/10.1364/JOSA.66.000207) for Kolmogorov turbulence and modal residuals, [Hudgin (1977)](https://doi.org/10.1364/JOSA.67.000393) for finite-corrector fitting error, and [Mahajan (1983)](https://doi.org/10.1364/JOSA.73.000860) for the exponential Strehl approximation. The fitting coefficient depends on the mirror influence functions; the measured 0.22–0.23 here is not a universal constant. Notebook 05 derives its delay limit from the characteristic polynomial, and notebooks 03 and 04 derive their noise-propagation formulas.
 
 ## History
 

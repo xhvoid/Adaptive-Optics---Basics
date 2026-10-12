@@ -284,12 +284,18 @@ def tsvd_reconstructor(
     """
     Truncated-SVD command matrix R, so that a command increment is R @ slopes.
 
-    Singular values below ``rcond`` times the largest are dropped. Returns R,
-    all singular values and the number kept.
+    Singular values below ``rcond`` times the largest are dropped, with a
+    machine-precision floor for numerical rank. Returns R, all singular
+    values and the number kept.
     """
     A = np.asarray(dm_response_matrix, dtype=float)
+    if not np.isfinite(rcond) or rcond < 0:
+        raise ValueError("rcond must be finite and non-negative.")
     U, S, Vt = np.linalg.svd(A, full_matrices=False)
-    keep = S >= rcond * S[0]
+    if S.size == 0:
+        return np.zeros((A.shape[1], A.shape[0])), S, 0
+    cutoff = max(rcond, np.finfo(float).eps * max(A.shape)) * S[0]
+    keep = S > cutoff
     R = (Vt[keep].T / S[keep]) @ U[:, keep].T
     return R, S, int(np.count_nonzero(keep))
 

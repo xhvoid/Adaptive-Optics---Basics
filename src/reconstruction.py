@@ -267,7 +267,7 @@ def reconstruct_tsvd(
     response_matrix: np.ndarray,
     k: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Truncated-SVD reconstruction."""
+    """Truncated-SVD reconstruction, excluding numerical null directions."""
     if k < 1:
         raise ValueError("k must be >= 1.")
 
@@ -276,8 +276,9 @@ def reconstruct_tsvd(
 
     k_eff = min(int(k), len(S))
     Sinv = np.zeros_like(S)
-    positive = S[:k_eff] > 0
-    Sinv[:k_eff][positive] = 1.0 / S[:k_eff][positive]
+    tolerance = np.finfo(float).eps * max(A.shape) * S[0] if S.size else 0.0
+    keep = (np.arange(len(S)) < k_eff) & (S > tolerance)
+    Sinv[keep] = 1.0 / S[keep]
 
     coeffs = Vt.T @ (Sinv * (U.T @ s))
     return coeffs, S
@@ -297,7 +298,9 @@ def reconstruct_tikhonov(
         raise ValueError("alpha must be non-negative.")
 
     s, A = _valid_lstsq_system(signal, response_matrix)
-    ATA = A.T @ A
-    rhs = A.T @ s
-    coeffs = np.linalg.solve(ATA + alpha**2 * np.eye(ATA.shape[0]), rhs)
+    # The augmented system avoids squaring the condition number in A.T @ A.
+    # At alpha = 0, lstsq also gives the minimum-norm unregularized solution.
+    augmented = np.vstack([A, alpha * np.eye(A.shape[1])])
+    target = np.concatenate([s, np.zeros(A.shape[1])])
+    coeffs, *_ = np.linalg.lstsq(augmented, target, rcond=None)
     return coeffs

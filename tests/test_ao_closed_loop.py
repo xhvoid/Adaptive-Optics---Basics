@@ -43,6 +43,26 @@ def test_dm_fit_recovers_a_shape_the_mirror_can_make():
     assert np.allclose(fitted[mask], phase[mask])
 
 
+def test_zero_response_has_no_controllable_commands():
+    response = np.zeros((4, 3))
+
+    reconstructor, singular_values, rank = tsvd_reconstructor(response)
+
+    assert rank == 0
+    assert np.all(singular_values == 0.0)
+    assert np.array_equal(reconstructor @ np.ones(4), np.zeros(3))
+
+
+def test_zero_cutoff_keeps_only_numerically_resolvable_modes():
+    response = np.diag([1.0, 1e-18, 0.0])
+
+    reconstructor, _, rank = tsvd_reconstructor(response, rcond=0.0)
+
+    assert rank == 1
+    assert np.all(np.isfinite(reconstructor))
+    assert np.allclose(reconstructor @ np.ones(3), [1.0, 0.0, 0.0])
+
+
 def test_cached_lenslet_geometry_gives_the_same_slopes():
     x, y, mask, influence = _small_system()
     phase = np.where(mask, np.nan_to_num(influence[5]) + 0.3 * x, np.nan)
@@ -81,6 +101,36 @@ def test_two_frame_delay_sets_the_integrator_gain_limit(gain, converges):
     start, end = history["rms_before"][0], history["rms_before"][-1]
     assert (end < 0.6 * start) == converges
     assert (end > 2.0 * start) == (not converges)
+
+
+@pytest.mark.parametrize("gain", [0.9, 1.0, 1.1])
+def test_one_frame_delay_matches_the_decay_and_oscillation_boundary(gain):
+    x, y, mask, influence = _small_system()
+    response, _ = build_dm_wfs_response_matrix(influence, mask, x, y, n_lenslets=6)
+    reconstructor, _, _ = tsvd_reconstructor(response)
+    # The strongest right singular vector is an observable, exactly DM-fit phase.
+    commands = np.linalg.svd(response, full_matrices=False)[2][0]
+    phase = synthesize_dm_phase(commands, influence, mask)
+    history = run_closed_loop_ao(
+        phase, mask, x, y, influence, response,
+        n_steps=60, wind_shift_per_step=(0, 0), gain=gain,
+        n_lenslets=6, delay_frames=1, reconstructor=reconstructor,
+        compute_strehl=False, record_every=1,
+    )
+    samples = phase[mask]
+    measured = history["residual_maps"][:, mask] @ samples / (samples @ samples)
+    # e[k+1] = e[k] - g*e[k-1]; poles of z**2-z+g have modulus sqrt(g).
+    expected = np.ones(60)
+    for k in range(1, 59):
+        expected[k + 1] = expected[k] - gain * expected[k - 1]
+
+    assert np.allclose(measured, expected, rtol=1e-8, atol=1e-10)
+    if gain == 1.0:
+        # At the boundary the signed error repeats every six frames, without decay.
+        assert np.allclose(measured[-6:], measured[:6], atol=1e-10)
+    else:
+        grows = np.linalg.norm(measured[-6:]) > np.linalg.norm(measured[:6])
+        assert grows == (gain > 1.0)
 
 
 def test_precomputed_reconstructor_matches_per_frame_least_squares():

@@ -83,10 +83,8 @@ def make_aligned_pupil_mask(
     """
     yy, xx = np.indices((n_pupil, n_pupil))
 
-    # For a cropped image of even size, the geometric center is (N-1)/2.
-    # But here the crop is taken around integer FFT centers, so using n_pupil/2
-    # matches the extraction convention used in the PWFS forward model.
-    c = n_pupil / 2.0
+    # The FFT center lands at this integer pixel in both even and odd crops.
+    c = n_pupil // 2
 
     r = np.sqrt((xx - c)**2 + (yy - c)**2) / (n_pupil / 2.0)
 
@@ -195,10 +193,9 @@ def pwfs_intensity(
     phase = np.asarray(phase, dtype=float)
     pupil = np.asarray(pupil, dtype=float)
 
-    n_fft = phase.shape[0]
-
-    if phase.shape[0] != phase.shape[1]:
+    if phase.ndim != 2 or phase.shape[0] != phase.shape[1]:
         raise ValueError("phase must be a square 2D array.")
+    n_fft = phase.shape[0]
 
     if pupil.shape != phase.shape:
         raise ValueError("pupil must have the same shape as phase.")
@@ -208,6 +205,12 @@ def pwfs_intensity(
 
     if pyramid_mask is not None and pyramid_mask.shape != phase.shape:
         raise ValueError("pyramid_mask must have the same shape as phase.")
+
+    illuminated = pupil != 0
+    if not np.all(np.isfinite(phase[illuminated])):
+        raise ValueError("phase must be finite inside the pupil.")
+    # Other modules use NaN outside the pupil; those samples carry no field.
+    phase = np.where(illuminated, phase, 0.0)
 
     if pyramid_mask is None:
         pyramid_mask = pyramid_phase_mask(
@@ -269,9 +272,9 @@ def extract_cutout(
     half = size // 2
 
     y0 = cy - half
-    y1 = cy + half
+    y1 = y0 + size
     x0 = cx - half
-    x1 = cx + half
+    x1 = x0 + size
 
     if y0 < 0 or x0 < 0 or y1 > image.shape[0] or x1 > image.shape[1]:
         raise ValueError(
@@ -775,7 +778,7 @@ def check_pwfs_geometry(
     Basic geometry check for PWFS pupil extraction.
     """
     half = n_pupil // 2
-    c = n_fft // 2
+    far_half = n_pupil - half
 
     centers = pupil_image_centers(
         n_fft=n_fft,
@@ -785,9 +788,9 @@ def check_pwfs_geometry(
     for key, (cx, cy) in centers.items():
         if (
             cy - half < 0
-            or cy + half > n_fft
+            or cy + far_half > n_fft
             or cx - half < 0
-            or cx + half > n_fft
+            or cx + far_half > n_fft
         ):
             raise ValueError(
                 f"Pupil image {key} is clipped. "

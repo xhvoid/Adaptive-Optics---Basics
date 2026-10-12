@@ -366,6 +366,8 @@ def build_detector_response_matrix(
 
     If ``differential=True``, use central finite-difference calibration:
         column_j = [s(+eps Z_j) - s(-eps Z_j)] / (2 eps)
+    Otherwise use the one-sided response s(eps Z_j) / eps; the measured
+    shifts already have the zero-phase reference subtracted.
     """
     if calibration_amplitude <= 0:
         raise ValueError("calibration_amplitude must be positive.")
@@ -432,7 +434,7 @@ def build_detector_response_matrix(
             column = ((shifts_p - shifts_m) / (2.0 * calibration_amplitude)).reshape(-1)
         else:
             _, shifts = measure_centroid_shifts(
-                mode,
+                calibration_amplitude * mode,
                 pupil_mask,
                 X,
                 Y,
@@ -450,7 +452,7 @@ def build_detector_response_matrix(
                 masks=masks,
                 centers=centers,
             )
-            column = shifts.reshape(-1)
+            column = shifts.reshape(-1) / calibration_amplitude
 
         columns.append(column)
 

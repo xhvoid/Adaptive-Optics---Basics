@@ -6,6 +6,7 @@ from reconstruction import (
     measure_slopes,
     numerical_gradient,
     reconstruct_modal_coefficients,
+    reconstruct_tikhonov,
     reconstruct_tsvd,
     residual_wavefront,
     rms,
@@ -70,6 +71,33 @@ def test_tsvd_reconstruction_matches_full_rank_solution_for_identity():
 
     assert np.allclose(coeffs, signal)
     assert np.allclose(singular_values, 1.0)
+
+
+def test_tsvd_excludes_numerical_null_directions():
+    response = np.array([[1.0, 1.0], [2.0, 2.0]])
+    signal = np.array([1.0, 0.0])
+
+    coeffs, _ = reconstruct_tsvd(signal, response, k=2)
+
+    assert np.allclose(coeffs, [0.1, 0.1])
+
+
+def test_tikhonov_zero_alpha_handles_rank_deficient_response():
+    response = np.array([[1.0, 1.0], [2.0, 2.0]])
+    signal = np.array([1.0, 0.0])
+
+    coeffs = reconstruct_tikhonov(signal, response, alpha=0.0)
+
+    assert np.allclose(coeffs, [0.1, 0.1])
+
+
+def test_tikhonov_preserves_small_regularization_in_ill_conditioned_system():
+    response = np.array([[1.0, 1.0], [0.0, 1e-8]])
+    signal = np.array([1.0, 1e-8])
+
+    coeffs = reconstruct_tikhonov(signal, response, alpha=1e-8)
+
+    assert np.allclose(coeffs, [1.0 / 3.0, 2.0 / 3.0], rtol=1e-7)
 
 
 def test_geometric_modal_reconstruction_reduces_wavefront_rms():
