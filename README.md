@@ -1,329 +1,121 @@
-# Shack-Hartmann Wavefront Sensing and Adaptive Optics Simulations
+# Adaptive Optics — Basics
 
-[![tests](https://github.com/xhvoid/Shack-Hartmann-AO-Simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/xhvoid/Shack-Hartmann-AO-Simulation/actions/workflows/ci.yml)
+[![tests](https://github.com/xhvoid/Adaptive-Optics---Basics/actions/workflows/ci.yml/badge.svg)](https://github.com/xhvoid/Adaptive-Optics---Basics/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-This repository contains a sequence of Python simulations for Shack-Hartmann wavefront sensing, wavefront reconstruction, simplified closed-loop adaptive optics, and PSF-based performance diagnostics.
+A Python model of a single-conjugate adaptive-optics system, built from first principles: atmospheric turbulence, Shack–Hartmann wavefront sensing, wavefront reconstruction, closed-loop control and the resulting near-infrared images. Every step is checked against a known analytic result.
 
-I built it as a compact, inspectable AO modelling project rather than a calibrated observatory simulator. The emphasis is on understanding the numerical chain from pupil-plane phase errors to WFS measurements, reconstruction, correction, residual wavefronts, and science-wavelength PSFs:
+I built it to understand AO by implementing each part myself. The code is plain NumPy/SciPy in seven small modules, and seven tutorial notebooks walk through the chain, each ending with a comparison against theory.
 
-```text
-pupil-plane phase error
-→ wavefront-sensor measurement
-→ response / interaction matrix
-→ regularized reconstruction
-→ deformable-mirror or modal correction
-→ residual wavefront
-→ PSF, Strehl, FWHM, and encircled-energy diagnostics
-```
+![J, H and K images of an 8 m telescope in 0.8 arcsec seeing, without and with AO correction](figures/06_jhk_psf.png)
 
-## Project scope
+*An 8 m telescope in 0.8″ seeing, corrected by a 40 × 40 Shack–Hartmann loop with 1517 actuators at 1 kHz and one frame of delay (noiseless). The wavefront error falls from 1.74 µm to 72 nm, and the image Strehl ratio is 0.88, 0.93 and 0.96 in J, H and K. [Notebook 06](notebooks/06_high_order_psf.ipynb).*
 
-The repository focuses on five connected parts of an AO simulation chain:
+## Results, checked against theory
 
-* SH-WFS measurement: geometric slopes and detector-level lenslet spot centroiding.
-* Reconstruction: modal response matrices, singular-value diagnostics, and TSVD regularization.
-* Closed-loop correction: simplified DM influence functions, integrator control, gain tuning, and delay tests.
-* Science diagnostics: residual OPD RMS, Strehl ratio, FWHM, EE50/EE80, and J/H/K PSF comparisons.
-* Extensions: simplified PWFS forward modelling and compact noise / latency / gain-stability scans.
+| Step | Notebook | Check | Result |
+| --- | --- | --- | --- |
+| Turbulence | [01](notebooks/01_atmosphere.ipynb) | Aperture variance against the von Kármán integral (Noll's 1.0299 and 0.134 in the Kolmogorov limit); structure function against $6.88\,(r/r_0)^{5/3}$ | Variance 36.2 ± 1.9 against 36.9 rad²; structure functions within 8% |
+| Shack–Hartmann sensing | [02](notebooks/02_shack_hartmann.ipynb) | Exact slopes of a tilt; residual after correcting J Zernike modes against Noll (1976) | Tilt exact to 1e-15; projection within 4% of Noll for J = 3–28, slope-based reconstruction 12–34% above it (aliasing) |
+| Reconstruction | [03](notebooks/03_reconstruction_tsvd.ipynb) | Noise propagation $\sigma_s^2 \sum 1/\sigma_i^2$ through a TSVD reconstructor | Within 4% of 2000 simulated noise draws |
+| Detector | [04](notebooks/04_detector_centroiding.ipynb) | Spot shift from the Fourier shift theorem; photon- and read-noise centroid error | Shift within 1–5%; noise within 2% (photon) and 5% (read noise) |
+| Closed loop | [05](notebooks/05_closed_loop.ipynb) | Fitting floor $\kappa\,(d/r_0)^{5/3}$; integrator stability limit $2\sin(\pi/(2(2d+1)))$ for $d$ frames of delay | $\kappa$ = 0.23; largest stable gains 1.9, 1.0, 0.6, 0.4 for $d$ = 0–3 against limits of 2, 1, 0.62, 0.45 |
+| High-order AO | [06](notebooks/06_high_order_psf.ipynb) | Fitting floor; image Strehl against Maréchal $e^{-\sigma^2}$ | $\kappa$ = 0.22; Strehl within 0.003 of Maréchal in J, H and K |
+| Pyramid sensor (exploratory) | [07](notebooks/07_pyramid_sensor.ipynb) | Modulated tilt response against $\tfrac{2}{\pi}\arcsin(t/r)$ | Converges to it as modulation grows (largest difference 0.09 at 2 λ/D, 0.015 at 16 λ/D) |
 
-Notebook 09 is the closest one to an instrument-performance calculation. It moves from low-order modal correction to a high-order actuator-space SH-AO demonstration with 48 × 48 WFS sampling, a 49 × 49 nominal actuator grid, TSVD command reconstruction, and J/H/K PSF diagnostics. Notebook 10 then asks a more engineering-style question: what happens when measurement noise, loop delay, and gain tuning are no longer ignored?
+### Delay sets the stable loop gain
 
-## Quick review path
+![Closed-loop residual against loop gain and frame delay, with the theoretical stability limit](figures/05_gain_delay.png)
 
-For a short technical review, I would start with:
+A pure integrator acting on a measurement $d$ frames old is stable only for $g < 2\sin(\pi/(2(2d+1)))$: 2, 1, 0.62 and 0.45 for $d$ = 0 to 3. In the simulation the largest stable gains are 1.9 (the largest tested), 1.0, 0.6 and 0.4, matching those limits to the resolution of the scan. Even inside the stable region, delay costs performance, and noisy slopes push the best gain down (from 0.8 to 0.3 in [notebook 05](notebooks/05_closed_loop.ipynb)).
 
-1. `06_detector_level_shwfs.ipynb` — detector-level SH-WFS centroiding and response calibration.
-2. `09_ao_psf_instrument_performance_high_order_ao.ipynb` — high-order actuator-space SH-AO and NIR PSF diagnostics.
-3. `10_noise_latency_gain_stability.ipynb` — noise, latency, and gain-stability trade-offs.
+### The turbulence follows the theory
 
-The earlier notebooks document the build-up from low-order modal reconstruction to detector-level and closed-loop models.
+![Phase structure function of the simulated screens against Kolmogorov and von Kármán theory](figures/01_structure_function.png)
 
-## Representative figures
+The phase screens add low-frequency subharmonics to an FFT screen; without them the aperture variance would be three times too low, because the large scales carry most of the tip/tilt. A finite outer scale lowers the structure function even far below $L_0$, and the exact von Kármán curve accounts for it.
 
-### High-order AO correction: NIR PSF sharpening
+### Regularisation, and a trap in modal TSVD
 
-Notebook 09 compares three PSF cases: diffraction-limited, open-loop atmospheric, and AO-corrected.
+![Reconstruction residual against the TSVD cutoff, total and with tip/tilt removed](figures/03_tsvd_scan.png)
 
-![High-order AO NIR PSF performance](figures/high_order_ao_jhk_psf.png)
+Small cutoffs amplify noise; large ones underfit. With unit-RMS Zernike modes, tip and tilt give the *smallest* slope signal, so a cutoff above about 0.06 silently drops them: the residual jumps from 0.20 to 0.92 rad, while the peak Strehl ratio, which ignores image motion, barely changes.
 
-### Closed-loop residual OPD RMS
+<details>
+<summary><strong>More figures</strong></summary>
 
-The high-order loop is run on a frozen-flow atmospheric sequence. I use the post-settling residual OPD RMS as the main wavefront-error diagnostic.
+![Centroid noise against photon flux, with and without read noise, against theory](figures/04_centroid_noise.png)
 
-![High-order AO residual RMS history](figures/high_order_ao_rms_history.png)
+*Centroid noise of a 12 × 12 pixel window against error-propagation theory ([notebook 04](notebooks/04_detector_centroiding.ipynb)).*
 
-### Wavefront correction maps
+![Residual variance after correcting J Zernike modes against Noll's table](figures/02_noll_residuals.png)
 
-The wavefront maps show the open-loop atmospheric phase, the DM correction, and the final closed-loop residual. This illustrates that the controller reconstructs actuator commands rather than only fitting low-order Zernike modes.
+*Residual after correcting J Zernike modes of Kolmogorov turbulence ([notebook 02](notebooks/02_shack_hartmann.ipynb)).*
 
-![High-order AO phase maps](figures/high_order_ao_phase_maps.png)
+![Open- and closed-loop wavefront error of the 8 m system](figures/06_rms_history.png)
 
-### Noise, latency, and loop-gain trade-offs
+*The 8 m loop of the top figure: open loop, closed loop and the mirror's fitting floor ([notebook 06](notebooks/06_high_order_psf.ipynb)).*
 
-Notebook 10 scans photon flux, read noise, loop gain, and frame delay. The gain-delay panel marks the chosen operating point and hatches cells where the loop becomes unstable or command-limited.
+![Pyramid wavefront sensor detector image and slope maps](figures/07_pyramid_images.png)
 
-![Noise, latency, and gain stability](figures/noise_latency_gain_stability.png)
+*Pyramid sensor: four pupil images and the $S_x$, $S_y$ maps of coma ([notebook 07](notebooks/07_pyramid_sensor.ipynb)).*
 
-### Simplified PWFS detector images
+</details>
 
-The PWFS branch is exploratory. It shows detector-plane pupil images and normalized slope-like signal maps, but it is not a validated PWFS control simulator.
-
-![PWFS detector images](figures/PWFS_detector_images.png)
-
-### Sampling density versus correction order
-
-This diagnostic tracks how WFS sampling density and controlled modal order affect conditioning and correction quality.
-
-![Sampling versus correction order](figures/sampling_vs_correction_order.png)
-
-### Detector-level Shack-Hartmann reconstruction
-
-The detector-level SH-WFS notebooks simulate lenslet spots, finite detector windows, noise, centroiding, reference subtraction, and response-matrix reconstruction.
-
-![Detector-level reconstruction](figures/detector_level_reconstruction.png)
-
-## Repository structure
+## How the simulation works
 
 ```text
-src/          reusable AO, WFS, reconstruction, PSF, and PWFS utilities
-notebooks/    narrative simulations from SH-WFS basics to high-order AO
-examples/     lightweight command-line demos used in CI
-tests/        numerical sanity checks for the core modules
-figures/      selected outputs used in this README and generated examples
-.github/      GitHub Actions workflow
+von Kármán phase screen, moved by frozen flow
+  → residual phase = atmosphere − mirror
+  → Shack–Hartmann measurement: average slopes, or detector spots and centroids
+  → TSVD reconstructor → integrator with frame delay → mirror commands
+  → residual phase → J/H/K images, Strehl ratio
 ```
 
-## Code architecture
+| Module | What it does |
+| --- | --- |
+| [`phase_screen.py`](src/phase_screen.py) | von Kármán screens with subharmonics, frozen flow, $r_0$ and seeing, theoretical aperture variance and structure function |
+| [`zernike.py`](src/zernike.py) | Pupil grids and Noll-normalised Zernike modes |
+| [`reconstruction.py`](src/reconstruction.py) | Geometric Shack–Hartmann slopes, modal response matrices, least-squares, TSVD and Tikhonov reconstruction |
+| [`shwfs_detector.py`](src/shwfs_detector.py) | Lenslet diffraction spots, detector windows, photon and read noise, centroids, push–pull calibration |
+| [`ao_closed_loop.py`](src/ao_closed_loop.py) | Gaussian deformable mirror with a guard ring, interaction matrix, fitting floor, TSVD reconstructor and the closed loop with delay and noise |
+| [`psf_tools.py`](src/psf_tools.py) | PSFs, Strehl ratio, Maréchal approximation, wavelength scaling |
+| [`pwfs_forward.py`](src/pwfs_forward.py) | Fourier-optics pyramid wavefront sensor with modulation (exploratory) |
 
-I kept the reusable numerical pieces in `src/` so the notebooks stay readable and the core functions can be tested independently. The notebooks are closer to experiment logs; the modules hold the reusable modelling components.
+Phase is in radians at the wavefront-sensor wavelength, maps are NaN outside the pupil, and piston is always removed; optical path difference is $\phi\lambda/2\pi$.
 
-| Module              | Main role                                                                                                                                                       |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `zernike.py`        | Pupil grids, Zernike modes, modal synthesis, piston removal, and RMS utilities.                    |
-| `phase_screen.py`   | Atmospheric-like phase screens, seeing / `r0` scaling, OPD conversion, and frozen-flow shifts.     |
-| `reconstruction.py` | Geometric SH-WFS slopes, response matrices, modal reconstruction, and residual metrics.           |
-| `shwfs_detector.py` | Lenslet spots, detector noise, centroiding, reference subtraction, and detector response matrices. |
-| `ao_closed_loop.py` | Gaussian DM influence functions, DM-WFS calibration, command updates, and loop diagnostics.       |
-| `psf_tools.py`      | FFT PSFs, Strehl ratios, radial profiles, Marechal approximation, and wavelength scaling.         |
-| `pwfs_forward.py`   | Simplified Fourier-optics PWFS forward model and `Sx/Sy` signal maps.                            |
-
-## Notebook sequence
-
-| Notebook                                               | Purpose                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01_test_sh_wfs.ipynb`                                 | Initial SH-WFS sanity checks for slopes, modal reconstruction, residuals, and Strehl.                                                                                                                               |
-| `02_sh_wfs_experiment.ipynb`                           | Baseline SH-WFS experiments with fixed/random wavefronts, spot checks, photon noise, and PSFs.                                                                                                                      |
-| `03_zernike_mode_scan.ipynb`                           | Reconstruction quality versus Zernike order and controlled mode count.                                                                                                                                              |
-| `04_sampling_vs_mode_order_heatmap.ipynb`              | WFS sampling density versus correction order and conditioning.                                                                                                                                                      |
-| `05_tsvd_regularization.ipynb`                         | TSVD regularization in an intentionally ill-conditioned reconstruction problem.                                                                                                                                      |
-| `06_detector_level_shwfs.ipynb`                        | Detector-level SH-WFS centroiding, response calibration, reconstruction, and noise scans.                                                                                                                           |
-| `07_closed_loop_ao.ipynb`                              | Geometric closed-loop AO baseline with Gaussian DM influence functions and an integrator controller.                                                                                                                |
-| `07_detector_level_closed_loop_ao.ipynb`               | Closed-loop AO driven by detector-level centroid shifts instead of ideal slopes.                                                                                                                                    |
-| `08_pwfs_detector_level_atmospheric_turbulence.ipynb`  | Exploratory detector-level PWFS forward model with four pupil images and `Sx/Sy` maps.                                                                                                                             |
-| `09_ao_psf_instrument_performance_high_order_ao.ipynb` | High-order actuator-space SH-AO demonstrator with 48 × 48 WFS sampling, 49 × 49 nominal actuator grid, TSVD reconstruction, and J/H/K PSF diagnostics.                                                             |
-| `10_noise_latency_gain_stability.ipynb`                | Photon/read-noise, loop-delay, and gain-stability trade-offs.                                                                                                                                                       |
-
-## Installation
-
-Clone the repository:
+## Run it
 
 ```bash
-git clone https://github.com/xhvoid/Shack-Hartmann-AO-Simulation.git
-cd Shack-Hartmann-AO-Simulation
-```
-
-Install the required packages:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-For development, examples, and tests, install the local project with test and notebook extras:
-
-```bash
-python -m pip install -e ".[test,notebooks]"
-```
-
-The project is intentionally lightweight. The core dependencies are mainly:
-
-```text
-numpy
-scipy
-matplotlib
-pandas
-jupyter
-ipykernel
-```
-
-## Running tests
-
-The repository includes focused unit tests for the numerical core rather than executing notebooks in CI:
-
-```bash
+git clone https://github.com/xhvoid/Adaptive-Optics---Basics.git
+cd Adaptive-Optics---Basics
+python -m pip install -e ".[test,notebooks,notebook-test]"
 pytest -q
+python scripts/run_notebooks.py
 ```
 
-The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same test command on Python 3.11 and then executes the two command-line examples.
+The tests take a few seconds. Notebooks 01–05 and 07 run in under a minute each; notebook 06 takes about two minutes and 2 GB of memory. CI runs the tests, the [examples](examples) and every tutorial notebook from a clean kernel on each push.
 
-## Command-line examples
+## Scope
 
-The examples provide quick entry points for checking the code without opening Jupyter:
+This is a model for understanding AO, not a prediction for a specific instrument:
 
-```bash
-python examples/run_shwfs_centroid_demo.py
-python examples/run_psf_strehl_demo.py
-```
+- one turbulent layer moved in whole-pixel steps, so no anisoplanatism or tomography;
+- the closed loops use the geometric sensor; detector noise is studied on its own (notebook 04) and as slope noise in notebook 05;
+- Gaussian influence functions rather than a measured mirror, and no non-common-path aberrations, vibrations or real-time hardware;
+- the pyramid model is exploratory and not used in a loop.
 
-They write lightweight artifacts under `figures/generated/`:
+## History
 
-```text
-figures/generated/shwfs_centroid_demo.png
-figures/generated/shwfs_centroid_demo.csv
-figures/generated/psf_strehl_demo.png
-figures/generated/psf_strehl_demo.csv
-```
-
-## Running the notebooks
-
-Start Jupyter from the repository root:
-
-```bash
-jupyter notebook
-```
-
-Recommended reading order:
-
-```text
-01 → 02 → 03 → 04 → 05 → 06 → 07 → 07b → 08 → 09 → 10
-```
-
-For the high-order AO PSF result, start directly with:
-
-```text
-09_ao_psf_instrument_performance_high_order_ao.ipynb
-```
-
-For noise, latency, and loop-gain trade-offs, start with:
-
-```text
-10_noise_latency_gain_stability.ipynb
-```
-
-## Reproducibility and validation
-
-I use three lightweight checks rather than trying to execute every notebook in CI:
-
-* Unit tests validate the numerical core: PSF normalization, Strehl sanity checks, phase/OPD conversion, detector centroiding edge cases, modal reconstruction, exact slopes of a tilted wavefront up to the pupil edge, and phase-screen statistics against the von Kármán aperture variance (Noll's 1.0299 and 0.134 coefficients in the Kolmogorov limit).
-* Command-line examples regenerate small PNG and CSV artifacts from deterministic seeds.
-* Notebooks remain the narrative entry points for the broader AO experiments, with notebook 10 explicitly separating clean-model AO performance from noise, latency, and controller-stability stress tests.
-
-## Notes on the main modelling choices
-
-### 1. Detector-level SH-WFS measurement chain
-
-The detector-level Shack-Hartmann model follows the measurement process more explicitly than a geometric slope model:
-
-```text
-local pupil phase
-→ lenslet focal-plane spot
-→ finite detector window
-→ photon / read / background noise
-→ centroid measurement
-→ reference-subtracted centroid shift
-→ calibrated response matrix
-→ modal reconstruction
-```
-
-I included this branch because real Shack-Hartmann sensors do not measure continuous slopes directly. They measure spot images on detector pixels. Centroiding error, finite sampling, photon statistics, read noise, spot clipping, and thresholding all enter before the reconstruction step.
-
-### 2. Response-matrix conditioning and TSVD regularization
-
-The reconstruction problem is treated as a linear inverse problem. Each WFS model produces an interaction matrix whose singular values determine which modal or actuator combinations are strongly or weakly sensed.
-
-The TSVD notebooks show why keeping every singular direction is not always useful. Weak singular directions can amplify noise or unstable command components, while overly aggressive truncation removes controllable modes. The cutoff is a system-level trade-off between fitting error, noise amplification, command conditioning, and image quality.
-
-### 3. Closed-loop AO correction
-
-The closed-loop branch uses a simplified deformable mirror with Gaussian influence functions and an integrator controller. The simulations track residual phase RMS, Strehl ratio, command evolution, and gain stability over loop iterations.
-
-The detector-level closed-loop experiment is deliberately simplified, but it no longer uses ideal analytic slopes. The loop is driven by centroid-shift measurements from simulated lenslet spots.
-
-### 4. High-order actuator-space AO / NIR PSF performance
-
-Notebook 09 takes the earlier low-order examples into a higher-order actuator-space SH-AO loop.
-
-The current high-order run uses:
-
-```text
-AO_QUALITY_MODE = "extreme"
-N_SUBAP         = 48
-N_ACT_ACROSS   = 49
-N_PUPIL        = 384
-TSVD rcond      = 2e-2
-loop gain       = 0.65
-```
-
-For the adopted 0.8 arcsec seeing, the SH-WFS subaperture size is close to the Fried parameter at the WFS wavelength. The atmosphere is a von Kármán phase sheet with that r0 and a 25 m outer scale, at its physical strength (no RMS rescaling). The controller uses an actuator poke matrix and TSVD command reconstruction, then converts residual OPD into J/H/K science PSF metrics.
-
-Representative clean-run results:
-
-```text
-open-loop median OPD RMS after settling    ≈ 1020 nm
-closed-loop median OPD RMS after settling  ≈ 78 nm
-ideal DM fitting floor                     ≈ 56 nm
-correction factor                          ≈ 13×
-```
-
-Approximate NIR Strehl ratios:
-
-```text
-J band  ≈ 0.86
-H band  ≈ 0.92
-K band  ≈ 0.95
-```
-
-The loop is noiseless and has no frame delay, so these values should be read as a clean-model performance demonstration rather than a calibrated prediction for a specific telescope or AO system.
-
-I keep this caveat explicit because the numbers are useful for comparing clean-model cases, but they are not a substitute for a calibrated instrument error budget.
-
-### 5. Noise, latency, and loop-gain stability
-
-Notebook `10_noise_latency_gain_stability.ipynb` adds a compact engineering trade-off layer around the closed-loop AO model. It scans photon flux, read noise, a transparent centroid-noise proxy, loop gain, and frame delay, then reports residual OPD RMS, H-band Marechal Strehl, command growth, and a simple stability flag.
-
-This is not a full AO error budget. Its purpose is to make the controller trade-offs visible: latency narrows the stable gain range (with two frames of delay the loop diverges above a gain of about 0.6, with three frames above about 0.45), and clean-model Strehl can be optimistic when detector and timing effects are ignored. In the current configuration the residual, about 228 nm OPD, is dominated by DM fitting error, so the photon and read-noise scans change it by only a few nanometres. The delay axis is also labelled as physical latency for a nominal 1 kHz loop.
-
-### 6. PWFS extension
-
-The pyramid-WFS branch uses a compact Fourier-optics model. The pupil field is propagated to the focal plane, multiplied by a pyramid-like phase mask, and propagated back to form four re-imaged pupil intensities. Normalized `Sx/Sy` maps are then used as the PWFS measurement vector.
-
-This branch should be read as an exploratory extension. It demonstrates the PWFS measurement logic and modal calibration, but it does not yet include a fully validated PWFS modulation, control, and detector-readout model.
-
-## Validation and limitations
-
-The current implementation intentionally keeps several assumptions simple:
-
-* The atmosphere is a single-layer von Kármán phase screen with low-frequency subharmonics, moved by frozen flow across a sheet larger than the pupil.
-* The other notebooks that use phase screens normalize their RMS for controlled tests; notebook 09 uses the physical strength set by r0 and L0.
-* The deformable mirror uses idealized Gaussian influence functions.
-* The detector models are simplified.
-* The SH-WFS branch is more mature than the PWFS branch.
-* The PWFS branch is a compact Fourier-optics demonstrator, not a fully validated PWFS control simulator.
-* The high-order notebook uses a geometric SH-WFS slope model rather than detector-level spot centroiding.
-* The high-order notebook does not include photon noise, read noise, centroiding error, detector nonlinearity, temporal delay, vibration, wind-shake, or a full servo-lag error budget.
-* Notebook 10 explores photon/read noise and delay through a simplified proxy model rather than a calibrated detector and real-time-control simulator.
-* The high-order notebook does not include multi-layer tomography, LGS cone effect, NCPA, chromaticity, throughput, sky background, or science-camera noise.
-* The simulations are not calibrated to a specific telescope, instrument, guide-star configuration, or observatory AO system.
-
-These limitations are intentional: the project is designed to make the modelling chain inspectable and educational rather than to hide assumptions inside a black-box simulator.
+[`notebooks/archive`](notebooks/archive) holds my original experiment notebooks from May–June 2026. Checking them against theory exposed three bugs: the phase screens had the wrong strength and too little tip/tilt power, frozen flow slid a masked screen's empty border into the pupil, and slopes at the pupil edge saw an artificial jump. After fixing them, I rebuilt the series as the tutorials above; the commit history records each change.
 
 ## Author
 
-Xu Han
-MSc Astrophysics, LMU Munich
-MSc Photonics student, Hochschule München
+**Xu Han** — MSc Astrophysics, LMU Munich; MSc Photonics student, Hochschule München.
 
-Research interests: adaptive optics, astronomical instrumentation, detector-level wavefront sensing, PSF modelling, instrument-performance prediction, and astrophotonics.
+Interests: adaptive optics, astronomical instrumentation, wavefront sensing and PSF modelling.
 
 ## License
 
-This project is released under the MIT License.
+MIT; see [LICENSE](LICENSE).
